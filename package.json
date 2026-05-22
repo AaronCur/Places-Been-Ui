@@ -9,7 +9,6 @@
     "test": "ng test",
     "vercel-build": "node set-env.js && ng build"
   },
-
   "private": true,
   "packageManager": "npm@10.9.2",
   "dependencies": {
@@ -21,6 +20,8 @@
     "@angular/material": "^21.2.12",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
+    "@angular/service-worker": "^21.2.0",
+    "@vercel/analytics": "^2.0.1",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
