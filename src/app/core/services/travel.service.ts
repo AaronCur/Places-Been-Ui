@@ -14,16 +14,16 @@ export class TravelService {
 
   // Fetch countries (with option to nested cities)
   getCountries(includeCities: boolean = false): Observable<CountryResponse[]> {
-    return this.http.get<CountryResponse[]>(`${this.apiUrl}/countries?includeCities=${includeCities}`);
+    return this.http.get<CountryResponse[]>(`${this.apiUrl}/api/countries?includeCities=${includeCities}`);
   }
 
   // Fetch aggregate stats for the dashboard header
   getStatsSummary(): Observable<DashboardSummaryResponse> {
-    return this.http.get<DashboardSummaryResponse>(`${this.apiUrl}/stats/summary`);
+    return this.http.get<DashboardSummaryResponse>(`${this.apiUrl}/api/stats/summary`);
   }
 
   // Handle city deletions
   deleteCity(cityId: number): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/cities/${cityId}`);
+    return this.http.delete<void>(`${this.apiUrl}/api/cities/${cityId}`);
   }
 }

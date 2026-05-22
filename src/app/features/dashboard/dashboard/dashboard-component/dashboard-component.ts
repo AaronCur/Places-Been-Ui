@@ -13,7 +13,6 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import {TravelService} from '../../../../core/services/travel.service';
 import {CountryResponse, DashboardSummaryResponse} from '../../../../core/models/travel.model';
 import {AddLocationPanelComponent} from '../add-location-panel-component/add-location-panel-component';
-import {MatDrawerContainer} from '@angular/material/sidenav';
 
 
 @Component({
@@ -28,8 +27,7 @@ import {MatDrawerContainer} from '@angular/material/sidenav';
     MatExpansionModule,
     MatProgressBarModule,
     MatToolbarModule,
-    AddLocationPanelComponent,
-    MatDrawerContainer
+    AddLocationPanelComponent
   ],
   templateUrl: './dashboard-component.html',
   styleUrls: ['./dashboard-component.css']
