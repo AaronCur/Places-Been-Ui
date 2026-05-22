@@ -1,5 +1,5 @@
 // src/app/features/dashboard/dashboard.component.ts
-import { Component, OnInit, inject, signal } from '@angular/core';
+import {Component, OnInit, inject, signal, model} from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 // Angular Material Imports
@@ -12,6 +12,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import {TravelService} from '../../../../core/services/travel.service';
 import {CountryResponse, DashboardSummaryResponse} from '../../../../core/models/travel.model';
+import {AddLocationPanelComponent} from '../add-location-panel-component/add-location-panel-component';
+import {MatDrawerContainer} from '@angular/material/sidenav';
 
 
 @Component({
@@ -25,7 +27,9 @@ import {CountryResponse, DashboardSummaryResponse} from '../../../../core/models
     MatListModule,
     MatExpansionModule,
     MatProgressBarModule,
-    MatToolbarModule
+    MatToolbarModule,
+    AddLocationPanelComponent,
+    MatDrawerContainer
   ],
   templateUrl: './dashboard-component.html',
   styleUrls: ['./dashboard-component.css']
@@ -37,6 +41,8 @@ export class DashboardComponent implements OnInit {
   stats = signal<DashboardSummaryResponse | null>(null);
   countries = signal<CountryResponse[]>([]);
   isLoading = signal<boolean>(true);
+  isPanelOpen = model(false);
+
 
   ngOnInit(): void {
     this.loadDashboardData();

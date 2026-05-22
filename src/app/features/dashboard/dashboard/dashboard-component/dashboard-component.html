@@ -12,6 +12,10 @@
         <span class="stat-badge">🏙️ Cities: <strong>{{ currentStats.totalCities }}</strong></span>
       </div>
     }
+
+    <button mat-raised-button color="accent" (click)="isPanelOpen.set(true)">
+      + Add New Destination
+    </button>
   </mat-toolbar>
 
   <!-- Loading Indicator -->
@@ -84,4 +88,11 @@
     </section>
 
   </div>
+
+
 </div>
+
+<app-add-location-panel
+  [(isOpen)]="isPanelOpen"
+  (locationAdded)="loadDashboardData()">
+</app-add-location-panel>

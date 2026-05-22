@@ -1,0 +1,74 @@
+<mat-drawer-container class="drawer-container" [hasBackdrop]="true">
+  <!-- The Sliding Panel -->
+  <mat-drawer mode="over" position="end" [opened]="isOpen()" (closedStart)="onClose()">
+
+    <div class="panel-header">
+      <h2>Add New Place</h2>
+      <button mat-icon-button type="button" (click)="onClose()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <form [formGroup]="locationForm" (ngSubmit)="onSubmit()" class="panel-body">
+
+      <!-- Country Mode Selector -->
+      <div class="form-row">
+        <mat-radio-group formControlName="countryMode" color="primary" class="mode-group">
+          <mat-radio-button value="existing">Existing Country</mat-radio-button>
+          <mat-radio-button value="new">New Country</mat-radio-button>
+        </mat-radio-group>
+      </div>
+
+      <!-- New Built-in Control Flow replaces *ngIf and *ngFor -->
+      @if (!isNewCountry) {
+        <!-- Existing Country Choice Dropdown -->
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Select Country</mat-label>
+            <mat-select formControlName="countryId">
+              @for (c of existingCountries; track c.id) {
+                <mat-option [value]="c.id">
+                  {{ c.name }}
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+      } @else {
+        <!-- New Country Text Input Box -->
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Country Name</mat-label>
+            <input matInput formControlName="newCountryName" placeholder="e.g. Italy" />
+          </mat-form-field>
+        </div>
+      }
+
+      <mat-divider></mat-divider>
+
+      <!-- First City Input (Enforces Business Constraints) -->
+      <div class="form-row city-section">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>City Visited</mat-label>
+          <input matInput formControlName="cityName" placeholder="e.g. Rome" />
+          <mat-hint>Every country tracking pointer requires a primary city location.</mat-hint>
+        </mat-form-field>
+      </div>
+
+      <!-- Actions Footer -->
+      <div class="panel-footer">
+        <button mat-button type="button" (click)="onClose()">Cancel</button>
+        <!-- Note: Modern Angular Material buttons use specific variant attributes (e.g., mat-flat-button) -->
+        <button mat-flat-button type="submit" color="primary" [disabled]="locationForm.invalid">
+          Save Location
+        </button>
+      </div>
+
+    </form>
+  </mat-drawer>
+
+  <!-- This structural placeholder block holds the rest of your underlying page content -->
+  <mat-drawer-content>
+    <ng-content></ng-content>
+  </mat-drawer-content>
+</mat-drawer-container>
