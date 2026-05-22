@@ -3,13 +3,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {CountryResponse, DashboardSummaryResponse} from '../models/travel.model';
+import {environment} from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TravelService {
   private http = inject(HttpClient);
-  private apiUrl = 'http://localhost:8080/api'; // Swap with your Spring Boot root URL
+  private apiUrl = environment.apiUrl // Swap with your Spring Boot root URL
 
   // Fetch countries (with option to nested cities)
   getCountries(includeCities: boolean = false): Observable<CountryResponse[]> {

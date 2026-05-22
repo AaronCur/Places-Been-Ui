@@ -13,6 +13,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import {TravelService} from '../../../../core/services/travel.service';
+import {environment} from '../../../../../environments/environment';
+
 
 interface LocationFormStructure {
   countryMode: FormControl<'existing' | 'new'>;
@@ -42,6 +44,7 @@ interface LocationFormStructure {
 export class AddLocationPanelComponent implements OnInit {
   // Services (Modern Inject token pattern)
   private travelService = inject(TravelService);
+  private apiUrl = environment.apiUrl
 
   private fb = inject(FormBuilder).nonNullable;
   private http = inject(HttpClient);
@@ -86,7 +89,7 @@ export class AddLocationPanelComponent implements OnInit {
   }
 
   loadCountries(): void {
-    this.http.get<Array<{ id: string; name: string }>>(`http/localhost:8080/api/countries`)
+    this.http.get<Array<{ id: string; name: string }>>(`${this.apiUrl}/api/countries`)
       .subscribe({
         next: (data) => this.existingCountries = data,
         error: (err) => console.error('Failed to resolve active country collection listings', err)
@@ -105,7 +108,7 @@ export class AddLocationPanelComponent implements OnInit {
       longitude: 0.002
     };
 
-    this.http.post(`http://localhost:8080/api/cities`, payload).subscribe({
+    this.http.post(`${this.apiUrl}/api/cities`, payload).subscribe({
       next: () => {
         this.locationAdded.emit();
         this.onClose();
