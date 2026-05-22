@@ -9,6 +9,7 @@
     "test": "ng test",
     "vercel-build": "sed -i \"s|API_BASE_URL|${VERCEL_API_URL}|g\" src/environments/environment.ts && ng build"
   },
+
   "private": true,
   "packageManager": "npm@10.9.2",
   "dependencies": {
