@@ -1,27 +1,32 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterOutlet } from '@angular/router';
-import {SwUpdate} from '@angular/service-worker';
+import { SwUpdate } from '@angular/service-worker';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { filter, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet],
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrl: './app.css',
 })
 export class App {
-  protected readonly title = signal('PlacesBeenUi');
+  private swUpdate = inject(SwUpdate);
+  private snackBar = inject(MatSnackBar);
 
-  constructor(private swUpdate: SwUpdate) {}
+  constructor() {
+    if (!this.swUpdate.isEnabled) return;
 
-  ngOnInit() {
-    if (this.swUpdate.isEnabled) {
-      this.swUpdate.versionUpdates.subscribe(event => {
-        if (event.type === 'VERSION_READY') {
-          if (confirm('A fresh update is available! Would you like to reload the app?')) {
-            window.location.reload();
-          }
-        }
-      });
-    }
+    // A new version was downloaded in the background: offer a reload instead of a blocking confirm()
+    this.swUpdate.versionUpdates
+      .pipe(
+        filter((event) => event.type === 'VERSION_READY'),
+        switchMap(() =>
+          this.snackBar.open('A new version is available', 'Reload', { duration: 0 }).onAction(),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => window.location.reload());
   }
 }
