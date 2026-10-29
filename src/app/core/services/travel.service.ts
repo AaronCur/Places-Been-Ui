@@ -1,28 +1,36 @@
-// src/app/core/services/travel.service.ts
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import {CountryResponse, DashboardSummaryResponse} from '../models/travel.model';
-import {environment} from '../../../environments/environment';
+import {
+  CityRequest,
+  CityResponse,
+  CountryResponse,
+  StatsSummaryResponse,
+} from '../models/travel.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class TravelService {
   private http = inject(HttpClient);
-  private apiUrl = environment.apiUrl // Swap with your Spring Boot root URL
+  private apiUrl = environment.apiUrl;
 
-  // Fetch countries (with option to nested cities)
-  getCountries(includeCities: boolean = false): Observable<CountryResponse[]> {
-    return this.http.get<CountryResponse[]>(`${this.apiUrl}/api/countries?includeCities=${includeCities}`);
+  // Visited countries only (those with at least one city), sorted by name
+  getCountries(includeCities = false): Observable<CountryResponse[]> {
+    return this.http.get<CountryResponse[]>(`${this.apiUrl}/api/countries`, {
+      params: { includeCities },
+    });
   }
 
-  // Fetch aggregate stats for the dashboard header
-  getStatsSummary(): Observable<DashboardSummaryResponse> {
-    return this.http.get<DashboardSummaryResponse>(`${this.apiUrl}/api/stats/summary`);
+  getStatsSummary(): Observable<StatsSummaryResponse> {
+    return this.http.get<StatsSummaryResponse>(`${this.apiUrl}/api/stats/summary`);
   }
 
-  // Handle city deletions
+  addCity(city: CityRequest): Observable<CityResponse> {
+    return this.http.post<CityResponse>(`${this.apiUrl}/api/cities`, city);
+  }
+
   deleteCity(cityId: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/api/cities/${cityId}`);
   }

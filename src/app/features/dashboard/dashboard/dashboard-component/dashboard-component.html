@@ -1,98 +1,75 @@
-<!-- src/app/features/dashboard/dashboard.component.html -->
-<div class="dashboard-container">
+<section class="panel" aria-label="Places visited">
+  <header class="title-row">
+    <mat-icon class="logo" aria-hidden="true">public</mat-icon>
+    <h1>Places Been</h1>
+    <button
+      mat-icon-button
+      type="button"
+      [attr.aria-label]="themeLabel()"
+      [title]="themeLabel()"
+      (click)="theme.cycle()"
+    >
+      <mat-icon>{{ themeIcon() }}</mat-icon>
+    </button>
+  </header>
 
-  <!-- 1. Top Navbar Stats Area -->
-  <mat-toolbar color="primary" class="stats-toolbar">
-    <span>📍 My Travel Footprint</span>
-    <span class="spacer"></span>
-
-    @if (stats(); as currentStats) {
-      <div class="quick-stats">
-        <span class="stat-badge">🌍 Countries: <strong>{{ currentStats.totalCountries }}</strong></span>
-        <span class="stat-badge">🏙️ Cities: <strong>{{ currentStats.totalCities }}</strong></span>
+  @switch (state()) {
+    @case ('loading') {
+      <mat-progress-bar mode="indeterminate" aria-label="Loading your places" />
+    }
+    @case ('error') {
+      <div class="notice" role="alert">
+        <mat-icon aria-hidden="true">cloud_off</mat-icon>
+        <p>Couldn’t load your places.</p>
+        <button mat-stroked-button type="button" (click)="load()">Try again</button>
       </div>
     }
+    @case ('ready') {
+      @if (stats(); as stats) {
+        <app-stats-cards
+          class="stats"
+          [stats]="stats"
+          [countriesVisited]="sovereignVisited()"
+          [countriesTotal]="sovereignTotal"
+          [landShare]="landShare()"
+        />
+      }
 
-    <button mat-raised-button color="accent" (click)="isPanelOpen.set(true)">
-      + Add New Destination
-    </button>
-  </mat-toolbar>
+      <h2 class="list-heading">
+        <mat-icon aria-hidden="true">public</mat-icon>
+        By country
+      </h2>
 
-  <!-- Loading Indicator -->
-  @if (isLoading()) {
-    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      @if (countries().length) {
+        <app-country-list
+          [countries]="countries()"
+          [selected]="selectedCountry()"
+          (selectedChange)="selectFromList($event)"
+          (deleteCity)="deleteCity($event)"
+        />
+      } @else {
+        <div class="notice">
+          <mat-icon aria-hidden="true">explore</mat-icon>
+          <p>Nothing scratched off yet. Add the first city you’ve been to.</p>
+        </div>
+      }
+    }
   }
+</section>
 
-  <!-- 2. Main Layout Container -->
-  <div class="content-layout">
+<section class="map" aria-label="Scratch map">
+  <app-globe
+    class="globe"
+    [shapes]="shapes()"
+    [visitedCodes]="visitedCodes()"
+    [markers]="markers()"
+    [focus]="mapFocus.target()"
+    [insetRight]="globeInset()"
+    (countryClick)="selectedCountry.set($event)"
+  />
 
-    <!-- Left Column: Travel Ledger Log -->
-    <section class="ledger-sidebar">
-      <mat-card class="ledger-card">
-        <mat-card-header>
-          <mat-card-title>Explored Territories</mat-card-title>
-        </mat-card-header>
-
-        <mat-card-content class="scrollable-content">
-          <!-- Material Accordion for Countries -->
-          <mat-accordion multi="true">
-            @for (country of countries(); track country.id) {
-              <mat-expansion-panel class="country-panel">
-                <mat-expansion-panel-header>
-                  <mat-panel-title>
-                    <span class="flag-icon">{{ country.flagEmoji || '🏳️' }}</span>
-                    {{ country.name }}
-                  </mat-panel-title>
-                  <mat-panel-description>
-                    {{ country.cities?.length || 0 }} logged
-                  </mat-panel-description>
-                </mat-expansion-panel-header>
-
-                <!-- Nested List for Cities -->
-                <mat-action-list>
-                  @for (city of country.cities; track city.id) {
-                    <mat-list-item class="city-item">
-                      <mat-icon matListItemIcon>location_city</mat-icon>
-                      <span matListItemTitle>{{ city.name }}</span>
-
-                      <!-- Delete Action End-Aligned -->
-                      <button mat-icon-button color="warn" matListItemMeta (click)="onDeleteCity(city.id, $event)">
-                        <mat-icon>delete</mat-icon>
-                      </button>
-                    </mat-list-item>
-                  } @empty {
-                    <p class="empty-state">No cities logged here yet.</p>
-                  }
-                </mat-action-list>
-
-              </mat-expansion-panel>
-            } @empty {
-              @if (!isLoading()) {
-                <div class="no-data-notice">
-                  <mat-icon>explore_off</mat-icon>
-                  <p>Your log is empty. Start pinning your destinations!</p>
-                </div>
-              }
-            }
-          </mat-accordion>
-        </mat-card-content>
-      </mat-card>
-    </section>
-
-    <!-- Right Column: Interactive Map Placeholder -->
-    <section class="map-view">
-      <div class="map-placeholder">
-        <mat-icon class="map-icon">map</mat-icon>
-        <p>Interactive Map Canvas (Leaflet/Mapbox Integration Area)</p>
-      </div>
-    </section>
-
-  </div>
-
-
-</div>
-
-<app-add-location-panel
-  [(isOpen)]="isPanelOpen"
-  (locationAdded)="loadDashboardData()">
-</app-add-location-panel>
+  <button mat-fab extended type="button" class="add" (click)="openAddCity()">
+    <mat-icon>add_location_alt</mat-icon>
+    Add city
+  </button>
+</section>

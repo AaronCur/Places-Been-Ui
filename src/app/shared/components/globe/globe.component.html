@@ -1,0 +1,36 @@
+<div class="legend" aria-hidden="true">
+  <span class="key"><span class="swatch visited"></span>Visited</span>
+  <span class="key"><span class="swatch land"></span>Not yet</span>
+  <span class="key"><span class="dot"></span>City</span>
+</div>
+
+<div
+  #canvasHost
+  class="canvas-host"
+  role="img"
+  aria-label="3D globe of visited countries and cities"
+></div>
+<span #probe class="probe" aria-hidden="true"></span>
+
+@switch (status()) {
+  @case ('loading') {
+    <p class="status">Loading globe…</p>
+  }
+  @case ('error') {
+    <p class="status">The globe needs WebGL, which isn't available in this browser.</p>
+  }
+  @case ('ready') {
+    <div class="controls">
+      <button mat-icon-button type="button" aria-label="Zoom in" (click)="zoom(0.7)">
+        <mat-icon>add</mat-icon>
+      </button>
+      <button mat-icon-button type="button" aria-label="Zoom out" (click)="zoom(1.4)">
+        <mat-icon>remove</mat-icon>
+      </button>
+      <button mat-icon-button type="button" aria-label="Reset view" (click)="resetView()">
+        <mat-icon>my_location</mat-icon>
+      </button>
+    </div>
+    <p class="hint">Drag to spin · scroll to zoom · click a country to find it in the list</p>
+  }
+}

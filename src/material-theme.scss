@@ -1,38 +1,71 @@
-// Include theming for Angular Material with `mat.theme()`.
-// This Sass mixin will define CSS variables that are used for styling Angular Material
-// components according to the Material 3 design spec.
-// Learn more about theming and how to use it for your application's
-// custom components at https://material.angular.dev/guide/theming
+// Material 3 theme with the agreed terracotta / sand palette (design canvas, `P.terracotta`).
+// mat.theme() builds every system token from the orange palette; theme-overrides then pins the key ones to the
+// exact design colours. Each token is light-dark(light, dark), so `color-scheme` alone switches the theme:
+// it follows the system, and ThemeService sets data-theme on <html> when the user picks light or dark.
+// Learn more: https://material.angular.dev/guide/theming
 @use '@angular/material' as mat;
 
 html {
   height: 100%;
+  color-scheme: light dark;
+
   @include mat.theme(
     (
       color: (
-        primary: mat.$azure-palette,
-        tertiary: mat.$blue-palette,
+        primary: mat.$orange-palette,
+        tertiary: mat.$cyan-palette,
       ),
       typography: Roboto,
       density: 0,
     )
   );
+
+  @include mat.theme-overrides(
+    (
+      primary: light-dark(#9a4521, #ffb597),
+      on-primary: light-dark(#ffffff, #5a1c00),
+      primary-container: light-dark(#ffdbcd, #7b2f0c),
+      on-primary-container: light-dark(#380d00, #ffdbcd),
+      background: light-dark(#fcf8f2, #18120e),
+      surface: light-dark(#fcf8f2, #18120e),
+      on-surface: light-dark(#1f1b16, #ede0d5),
+      on-surface-variant: light-dark(#50453a, #d4c4b5),
+      surface-container-lowest: light-dark(#fffdf9, #120d0a),
+      surface-container-low: light-dark(#fffdf9, #201a15),
+      surface-container: light-dark(#f2ebe1, #2f2822),
+      surface-container-high: light-dark(#ece3d7, #352d26),
+      surface-container-highest: light-dark(#e6dccb, #3e352d),
+      outline: light-dark(#827568, #9d8e81),
+      outline-variant: light-dark(#d4c4b5, #50453a),
+      inverse-surface: light-dark(#362f28, #ede0d5),
+      inverse-on-surface: light-dark(#f9efe6, #362f28),
+      inverse-primary: light-dark(#ffb597, #9a4521),
+    )
+  );
+
+  // App tokens Material has no slot for: the globe and the left panel
+  --pb-panel: light-dark(#fffdf9, #201a15);
+  --pb-divider: light-dark(#ece3d7, #352d26);
+  --pb-visited: light-dark(#c4673d, #d9764a);
+  --pb-marker: light-dark(#1f5f73, #7fd0ea);
+  --pb-land: light-dark(#e8dcc8, #3e352d);
+  --pb-ocean: light-dark(#dfe6e3, #1d2526);
+  --pb-globe-bg: light-dark(#f5efe5, #120d0a);
+  --pb-globe-line: light-dark(#fffdf9, #18120e);
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 body {
-  // Default the application to a light color theme. This can be changed to
-  // `dark` to enable the dark color theme, or to `light dark` to defer to the
-  // user's system settings.
-  color-scheme: light;
-
-  // Set a default background, font and text colors for the application using
-  // Angular Material's system-level CSS variables. Learn more about these
-  // variables at https://material.angular.dev/guide/system-variables
   background-color: var(--mat-sys-surface);
   color: var(--mat-sys-on-surface);
   font: var(--mat-sys-body-medium);
-
-  // Reset the user agent margin.
   margin: 0;
   height: 100%;
 }

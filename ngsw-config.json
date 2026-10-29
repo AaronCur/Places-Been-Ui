@@ -22,7 +22,7 @@
       "updateMode": "prefetch",
       "resources": {
         "files": [
-          "/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
+          "/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2|geojson)"
         ]
       }
     }
@@ -38,6 +38,17 @@
         "maxAge": "1h",
         "timeout": "5s",
         "strategy": "freshness"
+      }
+    },
+    {
+      "name": "places-data",
+      "urls": [
+        "https://cdn.jsdelivr.net/npm/@countrystatecity/**"
+      ],
+      "cacheConfig": {
+        "maxSize": 50,
+        "maxAge": "30d",
+        "strategy": "performance"
       }
     }
   ]
