@@ -1,1 +1,19 @@
-/* You can add global styles to this file, and also import other style files */
+/* Global styles. Component styles live next to their components; the theme is in material-theme.scss. */
+
+/* Dialogs go full screen on a phone (design: Add trip is a full-screen dialog there) */
+@media (max-width: 599px) {
+  .pb-responsive-dialog {
+    width: 100vw !important;
+    height: 100dvh;
+    max-height: 100dvh !important;
+  }
+
+  .pb-responsive-dialog .mat-mdc-dialog-surface {
+    border-radius: 0;
+  }
+}
+
+/* The docked desktop dialog keeps the globe visible behind it */
+.pb-light-backdrop {
+  background: rgb(0 0 0 / 0.12);
+}

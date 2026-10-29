@@ -1,0 +1,103 @@
+<h2 mat-dialog-title>
+  <mat-icon aria-hidden="true">add_location_alt</mat-icon>
+  Add city
+</h2>
+
+<mat-dialog-content>
+  <form id="add-city" [formGroup]="form" (ngSubmit)="save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Country</mat-label>
+      @if (selectedCountry(); as country) {
+        <app-flag matIconPrefix [code]="country.isoCode" [size]="28" />
+      }
+      <input matInput formControlName="country" [matAutocomplete]="countryAuto" />
+      <mat-autocomplete
+        #countryAuto="matAutocomplete"
+        [displayWith]="displayName"
+        autoActiveFirstOption
+      >
+        @for (option of countryOptions(); track option.isoCode) {
+          <mat-option [value]="option">
+            <span class="option">
+              <app-flag [code]="option.isoCode" [size]="28" />
+              {{ option.name }}
+            </span>
+          </mat-option>
+        }
+      </mat-autocomplete>
+      @if (countriesFailed()) {
+        <mat-hint class="error-hint">Couldn’t load the country list. Close and try again.</mat-hint>
+      }
+      @if (form.controls.country.hasError('server')) {
+        <mat-error>{{ form.controls.country.getError('server') }}</mat-error>
+      } @else if (form.controls.country.hasError('notPicked')) {
+        <mat-error>Pick a country from the list</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>City</mat-label>
+      <mat-icon matIconPrefix aria-hidden="true">search</mat-icon>
+      <input matInput formControlName="city" [matAutocomplete]="cityAuto" />
+      <mat-autocomplete
+        #cityAuto="matAutocomplete"
+        [displayWith]="displayName"
+        autoActiveFirstOption
+      >
+        @for (option of cityOptions(); track $index) {
+          <mat-option [value]="option">
+            <span class="option">
+              <mat-icon aria-hidden="true">location_on</mat-icon>
+              <span class="city-name">{{ option.name }}</span>
+              @if (option.stateName) {
+                <span class="state">{{ option.stateName }}</span>
+              }
+            </span>
+          </mat-option>
+        }
+      </mat-autocomplete>
+      @switch (citiesState().status) {
+        @case ('idle') {
+          <mat-hint>Pick a country first</mat-hint>
+        }
+        @case ('loading') {
+          <mat-hint>Loading cities…</mat-hint>
+        }
+        @case ('error') {
+          <mat-hint class="error-hint"
+            >Couldn’t load cities. Pick the country again to retry.</mat-hint
+          >
+        }
+      }
+      @if (form.controls.city.hasError('server')) {
+        <mat-error>{{ form.controls.city.getError('server') }}</mat-error>
+      } @else if (form.controls.city.hasError('notPicked')) {
+        <mat-error>Pick a city from the list</mat-error>
+      }
+    </mat-form-field>
+  </form>
+
+  @if (formError(); as error) {
+    <p class="form-error" role="alert">{{ error }}</p>
+  }
+
+  <p class="credit">
+    Places from the
+    <a
+      href="https://github.com/dr5hn/countries-states-cities-database"
+      target="_blank"
+      rel="noopener"
+      >Countries States Cities Database</a
+    >
+    (ODbL)
+  </p>
+</mat-dialog-content>
+
+@if (saving()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" mat-dialog-close>Cancel</button>
+  <button mat-flat-button type="submit" form="add-city" [disabled]="saving()">Save city</button>
+</mat-dialog-actions>

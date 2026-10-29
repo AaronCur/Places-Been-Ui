@@ -1,102 +1,120 @@
-/* src/app/features/dashboard/dashboard.component.css */
-.dashboard-container {
+/* Desktop (design): list panel on the left, globe filling the rest. Phone: globe on top, list below. */
+:host {
   display: flex;
-  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.panel {
+  flex: 0 0 auto;
+  width: clamp(360px, 32vw, 480px);
   height: 100vh;
-  width: 100vw;
-  background-color: #fafafa;
-}
-
-.spacer {
-  flex: 1 1 auto;
-}
-
-.quick-stats {
-  display: flex;
-  gap: 20px;
-  font-size: 14px;
-}
-
-.stat-badge {
-  background: rgba(255, 255, 255, 0.15);
-  padding: 6px 12px;
-  border-radius: 20px;
-}
-
-.content-layout {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* Sidebar configuration */
-.ledger-sidebar {
-  width: 450px;
-  min-width: 350px;
-  padding: 16px;
-  box-sizing: border-box;
-}
-
-.ledger-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.scrollable-content {
-  flex: 1;
+  height: 100dvh;
   overflow-y: auto;
-  margin-top: 12px;
-  padding-right: 4px;
+  box-sizing: border-box;
+  background: var(--pb-panel);
+  border-right: 1px solid var(--mat-sys-outline-variant);
 }
 
-/* Country flag margin styling */
-.flag-icon {
-  margin-right: 12px;
-  font-size: 1.2rem;
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 12px 12px 20px;
 }
 
-/* Map area spans remaining spatial width */
-.map-view {
-  flex: 1;
-  background-color: #e5e5e5;
-  position: relative;
+.logo {
+  color: var(--mat-sys-primary);
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
 }
 
-.map-placeholder {
+h1 {
+  flex: 1 1 auto;
+  margin: 0;
+  font: var(--mat-sys-title-large);
+  font-size: 22px;
+}
+
+.stats {
+  padding: 0 20px 16px;
+}
+
+.list-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mat-sys-primary);
+  border-bottom: 3px solid var(--mat-sys-primary);
+}
+
+.list-heading mat-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+.notice {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #757575;
-}
-
-.map-icon {
-  font-size: 48px;
-  width: 48px;
-  height: 48px;
-  margin-bottom: 8px;
-}
-
-.no-data-notice {
+  gap: 8px;
+  padding: 40px 24px;
   text-align: center;
-  padding: 40px 20px;
-  color: #888;
+  color: var(--mat-sys-on-surface-variant);
 }
 
-/* Mobile responsive media rules */
-@media (max-width: 768px) {
-  .content-layout {
-    flex-direction: column-reverse; /* Stacks layout vertically for smaller viewports */
+.notice p {
+  margin: 0;
+}
+
+.map {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.globe {
+  position: absolute;
+  inset: 0;
+}
+
+.add {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2;
+}
+
+@media (max-width: 839px) {
+  :host {
+    flex-direction: column-reverse;
   }
 
-  .ledger-sidebar {
+  .panel {
     width: 100%;
-    height: 50vh;
+    height: auto;
+    overflow: visible;
+    border-right: none;
+    border-top: 1px solid var(--mat-sys-outline-variant);
   }
 
-  .map-view {
-    height: 50vh;
+  .map {
+    height: 55vh;
+    min-height: 320px;
+  }
+
+  /* Stays reachable while scrolling the list */
+  .add {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
   }
 }

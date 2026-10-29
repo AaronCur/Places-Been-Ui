@@ -1,0 +1,65 @@
+:host {
+  display: block;
+}
+
+mat-expansion-panel {
+  --mat-expansion-container-background-color: transparent;
+  --mat-expansion-header-collapsed-state-height: 64px;
+  --mat-expansion-header-expanded-state-height: 64px;
+  border-bottom: 1px solid var(--pb-divider);
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+mat-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+mat-panel-description {
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.cities {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 4px 52px;
+}
+
+.city {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.pin {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--pb-marker);
+}
+
+.city-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.city button {
+  color: var(--mat-sys-on-surface-variant);
+}

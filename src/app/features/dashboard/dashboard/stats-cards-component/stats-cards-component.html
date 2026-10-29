@@ -1,0 +1,41 @@
+<div class="card">
+  <mat-icon class="badge" aria-hidden="true">flag</mat-icon>
+  <div>
+    <div class="value">{{ stats().totalCountries | number }}</div>
+    <div class="label">Countries</div>
+  </div>
+</div>
+
+<div class="card">
+  <mat-icon class="badge" aria-hidden="true">location_city</mat-icon>
+  <div>
+    <div class="value">{{ stats().totalCities | number }}</div>
+    <div class="label">Cities</div>
+  </div>
+</div>
+
+<div class="card share countries">
+  <span class="value">{{ countryShare() | percent: '1.1-1' }}</span>
+  <mat-progress-bar
+    mode="determinate"
+    [value]="countryPercent()"
+    aria-label="Share of the world's countries visited"
+  />
+  <span class="label">of countries · {{ countriesVisited() }} of {{ countriesTotal() }}</span>
+</div>
+
+<div class="card share land">
+  <span class="value">
+    @if (landShare() === null) {
+      –
+    } @else {
+      {{ landShare() | percent: '1.1-1' }}
+    }
+  </span>
+  <mat-progress-bar
+    mode="determinate"
+    [value]="landPercent()"
+    aria-label="Share of the world's land visited"
+  />
+  <span class="label">of the world's land</span>
+</div>
