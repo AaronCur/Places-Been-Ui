@@ -69,17 +69,27 @@ export function toCountryOptions(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Dataset entries that aren't places you visit: neighbourhoods listed beside their own city, and ghost towns
+const EXCLUDED_CITY_TYPES = new Set(['section', 'abandoned', 'destroyed', 'historical']);
+
+/**
+ * Biggest places first, so a short query offers Granada before a village of 200; filterByName keeps this order
+ * within its matches. Small towns stay in the list (they're real trips), they just need more typing. The
+ * dataset's `type` is too inconsistent to filter on beyond the exclusions (Madrid is a "municipality", Sevilla
+ * a "locality"), but population is filled in for ~90% of entries; those without one sort last.
+ */
 export function toCityOptions(
-  cities: Pick<ICity, 'name' | 'state_code' | 'latitude' | 'longitude'>[],
+  cities: Pick<ICity, 'name' | 'state_code' | 'latitude' | 'longitude' | 'type' | 'population'>[],
   states: Pick<IState, 'iso2' | 'name'>[],
 ): CityOption[] {
   const stateNames = new Map(states.map((s) => [s.iso2, s.name]));
   return cities
+    .filter((c) => !c.type || !EXCLUDED_CITY_TYPES.has(c.type))
+    .sort((a, b) => (b.population ?? 0) - (a.population ?? 0) || a.name.localeCompare(b.name))
     .map((c) => ({
       name: c.name,
       stateName: c.state_code ? (stateNames.get(c.state_code) ?? null) : null,
       latitude: Number(c.latitude),
       longitude: Number(c.longitude),
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    }));
 }

@@ -51,15 +51,52 @@ describe('toCityOptions', () => {
     expect(options.map((o) => o.stateName)).toEqual([null, null]);
   });
 
-  it('sorts by name', () => {
+  const city = (name: string, population?: number | null, type?: string | null) => ({
+    name,
+    state_code: 'OR',
+    latitude: '0',
+    longitude: '0',
+    population,
+    type,
+  });
+
+  it('sorts the biggest places first, unknown population last, ties by name', () => {
     const options = toCityOptions(
       [
-        { name: 'Salem', state_code: 'OR', latitude: '0', longitude: '0' },
-        { name: 'Eugene', state_code: 'OR', latitude: '0', longitude: '0' },
+        city('Shaniko', 36),
+        city('Unknown', null),
+        city('Portland', 652_503),
+        city('Salem', 175_535),
+        city('Eugene', 175_535),
+        city('Absent'),
       ],
       states,
     );
 
-    expect(options.map((o) => o.name)).toEqual(['Eugene', 'Salem']);
+    expect(options.map((o) => o.name)).toEqual([
+      'Portland',
+      'Eugene',
+      'Salem',
+      'Shaniko',
+      'Absent',
+      'Unknown',
+    ]);
+  });
+
+  it('drops neighbourhoods and ghost towns but keeps untyped and small places', () => {
+    const options = toCityOptions(
+      [
+        city('Pearl District', 6_000, 'section'),
+        city('Golden', 0, 'abandoned'),
+        city('Cannon Beach', 1_700, 'city'),
+        city('Joseph', 1_100, 'locality'),
+        city('Mitchell', 130, null),
+        city('Old Town', 0, 'destroyed'),
+        city('Champoeg', 0, 'historical'),
+      ],
+      states,
+    );
+
+    expect(options.map((o) => o.name)).toEqual(['Cannon Beach', 'Joseph', 'Mitchell']);
   });
 });

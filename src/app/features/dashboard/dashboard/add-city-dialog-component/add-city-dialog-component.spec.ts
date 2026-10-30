@@ -234,6 +234,19 @@ describe('filterByName', () => {
     expect(names('erman')).toEqual([]);
   });
 
+  it('keeps the input order within each group, so cities stay biggest first', () => {
+    // Not alphabetical, as the population-sorted city list wouldn't be
+    const cities = ['Sierra Grande', 'Granada', 'Alto Gredos', 'Grazalema', 'Gor'].map((name) => ({
+      name,
+    }));
+    expect(filterByName(cities, 'gr').map((c) => c.name)).toEqual([
+      'Granada',
+      'Grazalema',
+      'Sierra Grande',
+      'Alto Gredos',
+    ]);
+  });
+
   it('caps long lists', () => {
     expect(names('', 2)).toHaveLength(2);
   });
