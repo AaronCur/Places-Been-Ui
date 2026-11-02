@@ -1,4 +1,5 @@
-import { toCityOptions, toCountryOptions } from './places.service';
+import { ICountryMeta } from '@countrystatecity/countries-browser';
+import { confirmNoCities, toCityOptions, toCountryOptions } from './places.service';
 
 // The library calls themselves go to the CDN; these cover the mapping into the dialog's options
 describe('toCountryOptions', () => {
@@ -15,6 +16,16 @@ describe('toCountryOptions', () => {
   });
 });
 
+describe('confirmNoCities', () => {
+  it('accepts an empty list when the country itself loaded', () => {
+    expect(confirmNoCities({ name: 'Gibraltar' } as ICountryMeta)).toEqual([]);
+  });
+
+  it('treats it as a failure when the country did not load either', () => {
+    expect(() => confirmNoCities(null)).toThrow();
+  });
+});
+
 describe('toCityOptions', () => {
   const states = [
     { iso2: 'OR', name: 'Oregon' },
@@ -24,14 +35,15 @@ describe('toCityOptions', () => {
   it('parses coordinates and names the state, so same-named cities can be told apart', () => {
     const options = toCityOptions(
       [
-        { name: 'Portland', state_code: 'OR', latitude: '45.52', longitude: '-122.67' },
-        { name: 'Portland', state_code: 'ME', latitude: '43.66', longitude: '-70.25' },
+        { id: 1, name: 'Portland', state_code: 'OR', latitude: '45.52', longitude: '-122.67' },
+        { id: 2, name: 'Portland', state_code: 'ME', latitude: '43.66', longitude: '-70.25' },
       ],
       states,
     );
 
     expect(options.map((o) => o.stateName)).toEqual(['Oregon', 'Maine']);
     expect(options[0]).toEqual({
+      id: 1,
       name: 'Portland',
       stateName: 'Oregon',
       latitude: 45.52,
@@ -42,8 +54,8 @@ describe('toCityOptions', () => {
   it('leaves the state empty when the city has none or it is unknown', () => {
     const options = toCityOptions(
       [
-        { name: 'Vaduz', state_code: null, latitude: '47.14', longitude: '9.52' },
-        { name: 'Bend', state_code: 'XX', latitude: '44.05', longitude: '-121.31' },
+        { id: 1, name: 'Vaduz', state_code: null, latitude: '47.14', longitude: '9.52' },
+        { id: 2, name: 'Bend', state_code: 'XX', latitude: '44.05', longitude: '-121.31' },
       ],
       states,
     );
@@ -52,6 +64,7 @@ describe('toCityOptions', () => {
   });
 
   const city = (name: string, population?: number | null, type?: string | null) => ({
+    id: 1,
     name,
     state_code: 'OR',
     latitude: '0',

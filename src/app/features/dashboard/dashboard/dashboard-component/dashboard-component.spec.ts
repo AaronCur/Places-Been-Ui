@@ -206,4 +206,96 @@ describe('DashboardComponent', () => {
       longitude: 12.5,
     });
   });
+
+  const clickDeleteRome = async (fixture: Awaited<ReturnType<typeof render>>) => {
+    (fixture.nativeElement.querySelector('mat-expansion-panel-header') as HTMLElement).click();
+    await fixture.whenStable();
+    (fixture.nativeElement.querySelector('[aria-label="Delete Rome"]') as HTMLElement).click();
+    await fixture.whenStable();
+  };
+
+  it('keeps the list on screen while it refreshes', async () => {
+    const fixture = await render();
+    const refresh = new Subject<CountryResponse[]>();
+    countries$ = () => refresh;
+
+    await clickDeleteRome(fixture);
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.title-row mat-progress-bar')).not.toBeNull();
+    expect(el.querySelector('app-country-list .name')?.textContent?.trim()).toBe('Italy');
+
+    refresh.next([]);
+    refresh.complete();
+    await fixture.whenStable();
+
+    expect(el.querySelector('.title-row mat-progress-bar')).toBeNull();
+    expect(el.textContent).toContain('Nothing scratched off yet');
+  });
+
+  it('keeps the list and offers a retry when a refresh fails', async () => {
+    const fixture = await render();
+    countries$ = () => throwError(() => new Error('down'));
+
+    await clickDeleteRome(fixture);
+
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain('Couldn’t load your places');
+    expect(el.querySelector('app-country-list .name')?.textContent?.trim()).toBe('Italy');
+  });
+
+  it('ignores an older refresh that answers after a newer one', async () => {
+    const fixture = await render();
+    const requests: Subject<CountryResponse[]>[] = [];
+    countries$ = () => {
+      requests.push(new Subject());
+      return requests.at(-1)!;
+    };
+    const answer = (request: Subject<CountryResponse[]>, countries: CountryResponse[]) => {
+      request.next(countries);
+      request.complete();
+    };
+
+    await clickDeleteRome(fixture); // refresh 1: Rome is gone
+    undo.next(); // refresh 2: Rome is back
+    answer(requests[1], [italy]);
+    answer(requests[0], []);
+    await fixture.whenStable();
+
+    expect(requests).toHaveLength(2);
+    expect(fixture.nativeElement.querySelector('app-country-list .name')?.textContent).toContain(
+      'Italy',
+    );
+  });
+
+  it('opens one dialog however often the button is clicked while it loads', async () => {
+    const fixture = await render();
+    const button = fixture.nativeElement.querySelector('button.add') as HTMLElement;
+
+    button.click();
+    button.click();
+    await clickAdd(fixture);
+
+    expect(dialog.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('says so when the dialog cannot open, and lets the user try again', async () => {
+    const fixture = await render();
+    dialog.open.mockImplementationOnce(() => {
+      throw new Error('chunk failed');
+    });
+
+    await clickAdd(fixture);
+    await vi.waitFor(() =>
+      expect(snackBar.open).toHaveBeenCalledWith(
+        'Couldn’t open the form. Check your connection and try again.',
+        'OK',
+        { duration: 6000 },
+      ),
+    );
+
+    await clickAdd(fixture);
+    expect(dialog.open).toHaveBeenCalledTimes(2);
+    expect(globe(fixture).insetRight()).toBe(488);
+  });
 });

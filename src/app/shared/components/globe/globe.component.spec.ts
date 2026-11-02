@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GlobeComponent } from './globe.component';
+import { GlobeComponent, slideStep } from './globe.component';
 
 // jsdom has no WebGL, so the real globe can't start here; these cover the overlay and the fallback.
 // The globe itself is checked by running the app (see the verification steps in the plan).
@@ -34,5 +34,21 @@ describe('GlobeComponent', () => {
       { timeout: 10_000 },
     );
     expect(fixture.nativeElement.querySelector('[aria-label="Zoom in"]')).toBeNull();
+  });
+});
+
+describe('slideStep', () => {
+  it('runs from the start to the target', () => {
+    expect(slideStep(0, 244, 0)).toBe(0);
+    expect(slideStep(0, 244, 1)).toBe(244);
+  });
+
+  it('eases out: most of the distance is covered early', () => {
+    expect(slideStep(0, 100, 0.5)).toBe(87.5);
+  });
+
+  it('slides back the same way', () => {
+    expect(slideStep(244, 0, 1)).toBe(0);
+    expect(slideStep(100, 0, 0.5)).toBe(12.5);
   });
 });

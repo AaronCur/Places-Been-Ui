@@ -11,48 +11,45 @@
     >
       <mat-icon>{{ themeIcon() }}</mat-icon>
     </button>
-  </header>
-
-  @switch (state()) {
-    @case ('loading') {
+    @if (state() === 'loading') {
       <mat-progress-bar mode="indeterminate" aria-label="Loading your places" />
     }
-    @case ('error') {
-      <div class="notice" role="alert">
-        <mat-icon aria-hidden="true">cloud_off</mat-icon>
-        <p>Couldn’t load your places.</p>
-        <button mat-stroked-button type="button" (click)="load()">Try again</button>
+  </header>
+
+  @if (state() === 'error') {
+    <div class="notice" role="alert">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      <p>Couldn’t load your places.</p>
+      <button mat-stroked-button type="button" (click)="load()">Try again</button>
+    </div>
+  }
+
+  @if (stats(); as stats) {
+    <app-stats-cards
+      class="stats"
+      [stats]="stats"
+      [countriesVisited]="sovereignVisited()"
+      [countriesTotal]="sovereignTotal"
+      [landShare]="landShare()"
+    />
+
+    <h2 class="list-heading">
+      <mat-icon aria-hidden="true">public</mat-icon>
+      By country
+    </h2>
+
+    @if (countries().length) {
+      <app-country-list
+        [countries]="countries()"
+        [selected]="selectedCountry()"
+        (selectedChange)="selectFromList($event)"
+        (deleteCity)="deleteCity($event)"
+      />
+    } @else {
+      <div class="notice">
+        <mat-icon aria-hidden="true">explore</mat-icon>
+        <p>Nothing scratched off yet. Add the first city you’ve been to.</p>
       </div>
-    }
-    @case ('ready') {
-      @if (stats(); as stats) {
-        <app-stats-cards
-          class="stats"
-          [stats]="stats"
-          [countriesVisited]="sovereignVisited()"
-          [countriesTotal]="sovereignTotal"
-          [landShare]="landShare()"
-        />
-      }
-
-      <h2 class="list-heading">
-        <mat-icon aria-hidden="true">public</mat-icon>
-        By country
-      </h2>
-
-      @if (countries().length) {
-        <app-country-list
-          [countries]="countries()"
-          [selected]="selectedCountry()"
-          (selectedChange)="selectFromList($event)"
-          (deleteCity)="deleteCity($event)"
-        />
-      } @else {
-        <div class="notice">
-          <mat-icon aria-hidden="true">explore</mat-icon>
-          <p>Nothing scratched off yet. Add the first city you’ve been to.</p>
-        </div>
-      }
     }
   }
 </section>

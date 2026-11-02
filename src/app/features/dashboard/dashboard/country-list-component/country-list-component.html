@@ -17,14 +17,14 @@
 
       <ul class="cities">
         @for (city of country.cities; track city.id) {
-          <li class="city">
+          <li #row class="city">
             <mat-icon class="pin" aria-hidden="true">location_on</mat-icon>
             <span class="city-name">{{ city.name }}</span>
             <button
               mat-icon-button
               type="button"
               [attr.aria-label]="'Delete ' + city.name"
-              (click)="deleteCity.emit({ city, country })"
+              (click)="askToDelete({ city, country }, row)"
             >
               <mat-icon>delete_outline</mat-icon>
             </button>
