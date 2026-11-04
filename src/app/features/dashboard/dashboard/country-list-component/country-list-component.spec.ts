@@ -75,4 +75,90 @@ describe('CountryListComponent', () => {
 
     expect(requests).toEqual([{ city: italy.cities![1], country: italy }]);
   });
+
+  describe('keyboard focus after a delete', () => {
+    const deleteButton = (fixture: Awaited<ReturnType<typeof render>>, name: string) =>
+      fixture.nativeElement.querySelector(`[aria-label="Delete ${name}"]`) as HTMLElement;
+    const clickWithFocus = (button: HTMLElement) => {
+      button.focus();
+      button.click();
+    };
+
+    it('moves to the next city when the row is gone', async () => {
+      const fixture = await render('IT');
+      clickWithFocus(deleteButton(fixture, 'Rome'));
+
+      fixture.componentRef.setInput('countries', [
+        france,
+        { ...italy, cities: [italy.cities![1]] },
+      ]);
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(deleteButton(fixture, 'Florence'));
+    });
+
+    it('moves to a neighbouring country when that was its last city', async () => {
+      const fixture = await render('FR');
+      const italyHeader = fixture.nativeElement.querySelectorAll('mat-expansion-panel-header')[1];
+      clickWithFocus(deleteButton(fixture, 'Lyon'));
+
+      fixture.componentRef.setInput('countries', [italy]);
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(italyHeader);
+    });
+
+    it('leaves focus alone if the user has moved on in the meantime', async () => {
+      const fixture = await render('IT');
+      const elsewhere = document.body.appendChild(document.createElement('button'));
+      clickWithFocus(deleteButton(fixture, 'Rome'));
+      elsewhere.focus();
+
+      fixture.componentRef.setInput('countries', [
+        france,
+        { ...italy, cities: [italy.cities![1]] },
+      ]);
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(elsewhere);
+      elsewhere.remove();
+    });
+  });
+
+  describe('scrolling the selected country into view', () => {
+    const spain: CountryResponse = { id: 3, name: 'Spain', isoCode: 'ES', flag: '🇪🇸', cities: [] };
+    let scrolled: string[];
+
+    beforeEach(() => {
+      scrolled = [];
+      Element.prototype.scrollIntoView = function (this: Element) {
+        scrolled.push(this.getAttribute('data-country')!);
+      };
+    });
+
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    it('scrolls to a country picked on the globe', async () => {
+      const fixture = await render();
+
+      fixture.componentRef.setInput('selected', 'IT');
+      await fixture.whenStable();
+
+      expect(scrolled).toEqual(['IT']);
+    });
+
+    it('waits for the panel of a country that was only just added', async () => {
+      const fixture = await render();
+
+      fixture.componentRef.setInput('selected', 'ES');
+      await fixture.whenStable();
+      expect(scrolled).toEqual([]);
+
+      fixture.componentRef.setInput('countries', [france, italy, spain]);
+      await fixture.whenStable();
+      expect(scrolled).toEqual(['ES']);
+    });
+  });
 });

@@ -13,7 +13,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { catchError, filter, finalize, forkJoin, from, map, of, switchMap } from 'rxjs';
+import {
+  Subject,
+  catchError,
+  filter,
+  finalize,
+  forkJoin,
+  from,
+  map,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import { CountryResponse, StatsSummaryResponse } from '../../../../core/models/travel.model';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
 import { ThemeService } from '../../../../core/services/theme.service';
@@ -60,8 +71,10 @@ export class DashboardComponent {
   protected theme = inject(ThemeService);
   protected mapFocus = inject(MapFocusService);
 
-  // One load for the panel; the list, the globe and the land stat are all derived from `countries`
+  // One load for the panel; the list, the globe and the land stat are all derived from `countries`.
+  // `state` is the latest load's status. Loaded data stays on screen through a refresh, even a failed one.
   protected readonly state = signal<'loading' | 'ready' | 'error'>('loading');
+  private readonly reload$ = new Subject<void>();
   protected readonly stats = signal<StatsSummaryResponse | null>(null);
   protected readonly countries = signal<CountryResponse[]>([]);
   protected readonly shapes = signal<CountryShape[]>([]);
@@ -97,6 +110,7 @@ export class DashboardComponent {
     { initialValue: false },
   );
   private readonly dialogDocked = signal(false);
+  private addDialogOpen = false;
   protected readonly globeInset = computed(() => (this.dialogDocked() ? DOCKED_DIALOG_INSET : 0));
 
   protected readonly themeIcon = computed(
@@ -115,6 +129,26 @@ export class DashboardComponent {
   );
 
   constructor() {
+    // Every reload goes through one stream: switchMap cancels the previous request, so a slow older response
+    // can't overwrite a newer one. The error is caught inside it, or one failure would end the stream.
+    this.reload$
+      .pipe(
+        tap(() => this.state.set('loading')),
+        switchMap(() =>
+          forkJoin({
+            stats: this.travelService.getStatsSummary(),
+            countries: this.travelService.getCountries(true),
+          }).pipe(catchError(() => of(null))),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe((loaded) => {
+        if (loaded) {
+          this.stats.set(loaded.stats);
+          this.countries.set(loaded.countries);
+        }
+        this.state.set(loaded ? 'ready' : 'error');
+      });
     this.load();
 
     // Shapes are a static file; without them the globe and land stat stay empty, the rest still works
@@ -128,20 +162,7 @@ export class DashboardComponent {
   }
 
   protected load(): void {
-    this.state.set('loading');
-    forkJoin({
-      stats: this.travelService.getStatsSummary(),
-      countries: this.travelService.getCountries(true),
-    })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: ({ stats, countries }) => {
-          this.stats.set(stats);
-          this.countries.set(countries);
-          this.state.set('ready');
-        },
-        error: () => this.state.set('error'),
-      });
+    this.reload$.next();
   }
 
   // Opening a country in the list turns the globe to it. Globe clicks don't (it's already in view), and
@@ -156,6 +177,9 @@ export class DashboardComponent {
 
   // The dialog, MatDialog and the form/autocomplete modules are one lazy chunk, downloaded on the first click
   protected openAddCity(): void {
+    if (this.addDialogOpen) return; // a second click while that chunk is on its way
+    this.addDialogOpen = true;
+
     const placement: DialogPlacement = this.isDesktop() ? 'docked' : 'centered';
     from(import('../add-city-dialog-component/add-city-dialog-component'))
       .pipe(
@@ -165,14 +189,23 @@ export class DashboardComponent {
           this.dialogDocked.set(placement === 'docked');
           return openAddCityDialog(this.injector, placement);
         }),
-        finalize(() => this.dialogDocked.set(false)),
+        finalize(() => {
+          this.addDialogOpen = false;
+          this.dialogDocked.set(false);
+        }),
         filter((created) => !!created),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((created) => {
-        this.selectedCountry.set(created.countryCode ?? null);
-        this.snackBar.open(`${created.name} added`, undefined, { duration: 3000 });
-        this.load();
+      .subscribe({
+        next: (created) => {
+          this.selectedCountry.set(created.countryCode ?? null);
+          this.snackBar.open(`${created.name} added`, undefined, { duration: 3000 });
+          this.load();
+        },
+        error: () =>
+          this.snackBar.open('Couldn’t open the form. Check your connection and try again.', 'OK', {
+            duration: 6000,
+          }),
       });
   }
 

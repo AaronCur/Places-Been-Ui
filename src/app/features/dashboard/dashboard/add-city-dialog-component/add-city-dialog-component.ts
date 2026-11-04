@@ -27,7 +27,16 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { Observable, catchError, distinctUntilChanged, map, of, startWith, switchMap } from 'rxjs';
+import {
+  Observable,
+  Subject,
+  catchError,
+  distinctUntilChanged,
+  map,
+  of,
+  startWith,
+  switchMap,
+} from 'rxjs';
 import { CityResponse, ErrorResponse } from '../../../../core/models/travel.model';
 import { CityOption, CountryOption, PlacesService } from '../../../../core/services/places.service';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
@@ -117,6 +126,7 @@ export class AddCityDialogComponent {
   private readonly allCountries = toSignal(
     this.places.getCountries().pipe(catchError(() => of(null))),
   );
+  protected readonly countriesLoading = computed(() => this.allCountries() === undefined);
   protected readonly countriesFailed = computed(() => this.allCountries() === null);
 
   private readonly countryValue = toSignal(this.form.controls.country.valueChanges, {
@@ -139,23 +149,36 @@ export class AddCityDialogComponent {
     filterByName(this.allCountries() ?? [], this.countryValue()),
   );
 
-  // Cities load when a country is picked (one request per country, cached in PlacesService)
+  protected readonly retryCities$ = new Subject<void>();
+
+  // Cities load when a country is picked (one request per country, cached in PlacesService), and again on
+  // Retry; a failed request isn't cached, so subscribing again makes a new one
   protected readonly citiesState = toSignal(
     this.form.controls.country.valueChanges.pipe(
       map((value) => (isPicked(value) ? value.isoCode : null)),
       distinctUntilChanged(),
       switchMap((isoCode) =>
         isoCode
-          ? this.places.getCities(isoCode).pipe(
-              map((cities): CitiesState => ({ status: 'ready', cities })),
-              startWith<CitiesState>({ status: 'loading' }),
-              catchError(() => of<CitiesState>({ status: 'error' })),
+          ? this.retryCities$.pipe(
+              startWith(undefined),
+              switchMap(() =>
+                this.places.getCities(isoCode).pipe(
+                  map((cities): CitiesState => ({ status: 'ready', cities })),
+                  startWith<CitiesState>({ status: 'loading' }),
+                  catchError(() => of<CitiesState>({ status: 'error' })),
+                ),
+              ),
             )
           : of<CitiesState>({ status: 'idle' }),
       ),
     ),
     { initialValue: { status: 'idle' } as CitiesState },
   );
+
+  protected readonly noCities = computed(() => {
+    const state = this.citiesState();
+    return state.status === 'ready' && !state.cities.length;
+  });
 
   protected readonly cityOptions = computed(() => {
     const state = this.citiesState();
@@ -183,6 +206,11 @@ export class AddCityDialogComponent {
           city.disable();
         }
       });
+
+    // No closing while saving: the POST would still finish, but nobody would be left to refresh the list
+    effect(() => {
+      this.dialogRef.disableClose = this.saving();
+    });
 
     // Turn the globe behind the dialog to what was picked: the country, then closer in on the city.
     // An effect, not a computed: moving the camera is a side effect outside this component.

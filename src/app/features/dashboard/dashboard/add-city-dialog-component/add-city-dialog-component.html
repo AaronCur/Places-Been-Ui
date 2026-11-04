@@ -25,8 +25,12 @@
           </mat-option>
         }
       </mat-autocomplete>
-      @if (countriesFailed()) {
-        <mat-hint class="error-hint">Couldn’t load the country list. Close and try again.</mat-hint>
+      @if (countriesLoading()) {
+        <mat-hint>Loading countries…</mat-hint>
+      } @else if (countriesFailed()) {
+        <mat-hint class="error-hint" role="alert"
+          >Couldn’t load the country list. Close and try again.</mat-hint
+        >
       }
       @if (form.controls.country.hasError('server')) {
         <mat-error>{{ form.controls.country.getError('server') }}</mat-error>
@@ -39,12 +43,23 @@
       <mat-label>City</mat-label>
       <mat-icon matIconPrefix aria-hidden="true">search</mat-icon>
       <input matInput formControlName="city" [matAutocomplete]="cityAuto" />
+      @if (citiesState().status === 'error') {
+        <button
+          matIconSuffix
+          mat-icon-button
+          type="button"
+          aria-label="Retry loading cities"
+          (click)="retryCities$.next()"
+        >
+          <mat-icon>refresh</mat-icon>
+        </button>
+      }
       <mat-autocomplete
         #cityAuto="matAutocomplete"
         [displayWith]="displayName"
         autoActiveFirstOption
       >
-        @for (option of cityOptions(); track $index) {
+        @for (option of cityOptions(); track option.id) {
           <mat-option [value]="option">
             <span class="option">
               <mat-icon aria-hidden="true">location_on</mat-icon>
@@ -64,10 +79,11 @@
           <mat-hint>Loading cities…</mat-hint>
         }
         @case ('error') {
-          <mat-hint class="error-hint"
-            >Couldn’t load cities. Pick the country again to retry.</mat-hint
-          >
+          <mat-hint class="error-hint" role="alert">Couldn’t load cities.</mat-hint>
         }
+      }
+      @if (noCities()) {
+        <mat-hint>No cities listed for this country</mat-hint>
       }
       @if (form.controls.city.hasError('server')) {
         <mat-error>{{ form.controls.city.getError('server') }}</mat-error>
@@ -94,10 +110,10 @@
 </mat-dialog-content>
 
 @if (saving()) {
-  <mat-progress-bar mode="indeterminate" />
+  <mat-progress-bar mode="indeterminate" aria-label="Saving city" />
 }
 
 <mat-dialog-actions align="end">
-  <button mat-button type="button" mat-dialog-close>Cancel</button>
+  <button mat-button type="button" mat-dialog-close [disabled]="saving()">Cancel</button>
   <button mat-flat-button type="submit" form="add-city" [disabled]="saving()">Save city</button>
 </mat-dialog-actions>

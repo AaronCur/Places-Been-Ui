@@ -39,6 +39,10 @@ interface Size {
 // Starts moving at once and settles gently: the right feel for motion that answers a click
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 
+/** Position of a slide from `from` to `target` once `t` (0–1) of its duration has passed */
+export const slideStep = (from: number, target: number, t: number) =>
+  from + (target - from) * easeOutCubic(t);
+
 // The two three.js PerspectiveCamera methods used here (three's own types aren't installed)
 interface ViewOffsetCamera {
   setViewOffset(
@@ -78,6 +82,8 @@ export class GlobeComponent {
   private readonly theme = inject(ThemeService);
   private readonly globe = signal<GlobeInstance | null>(null);
   private readonly size = signal<Size>({ width: 0, height: 0 });
+  private shift = 0; // px the picture is currently slid left
+  private slideFrame = 0;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -175,9 +181,6 @@ export class GlobeComponent {
     destroyRef.onDestroy(() => cancelAnimationFrame(this.slideFrame));
   }
 
-  private shift = 0; // px the picture is currently slid left
-  private slideFrame = 0;
-
   // Eases the view offset from where it is now to `target` (a resize mid-slide just continues from there).
   // globe.gl re-renders every frame anyway, so each step only has to update the camera.
   private slideTo(globe: GlobeInstance, target: number, { width, height }: Size): void {
@@ -201,7 +204,7 @@ export class GlobeComponent {
     const start = performance.now();
     const step = (now: number) => {
       const t = Math.min(1, (now - start) / SLIDE_MS);
-      apply(from + (target - from) * easeOutCubic(t));
+      apply(slideStep(from, target, t));
       if (t < 1) this.slideFrame = requestAnimationFrame(step);
     };
     this.slideFrame = requestAnimationFrame(step);
