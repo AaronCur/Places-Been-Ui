@@ -3,7 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TravelService } from './travel.service';
 import { environment } from '../../../environments/environment';
-import { CityResponse, CountryResponse } from '../models/travel.model';
+import { CityRequest, CityResponse, CountryResponse } from '../models/travel.model';
 
 describe('TravelService', () => {
   const api = `${environment.apiUrl}/api`;
@@ -54,8 +54,20 @@ describe('TravelService', () => {
   });
 
   it('addCity posts the request body and returns the created city', () => {
-    const request = { name: 'Berlin', countryCode: 'DE', latitude: 52.52, longitude: 13.405 };
-    const created: CityResponse = { id: 7, ...request, country: 'Germany', countryFlag: '🇩🇪' };
+    const request: CityRequest = {
+      name: 'Berlin',
+      state: 'Berlin',
+      countryCode: 'DE',
+      latitude: 52.52,
+      longitude: 13.405,
+    };
+    const created: CityResponse = {
+      id: 7,
+      ...request,
+      state: 'Berlin',
+      country: 'Germany',
+      countryFlag: '🇩🇪',
+    };
     let result: CityResponse | undefined;
 
     service.addCity(request).subscribe((city) => (result = city));

@@ -201,9 +201,61 @@ describe('DashboardComponent', () => {
 
     expect(travel.addCity).toHaveBeenCalledWith({
       name: 'Rome',
+      state: null,
       countryCode: 'IT',
       latitude: 41.9,
       longitude: 12.5,
+    });
+  });
+
+  describe('with two cities of the same name', () => {
+    beforeEach(() => {
+      countries$ = () =>
+        of([
+          {
+            id: 3,
+            name: 'United States',
+            isoCode: 'US',
+            flag: '🇺🇸',
+            cities: [
+              { id: 30, name: 'Portland', state: 'Oregon', latitude: 45.52, longitude: -122.68 },
+              { id: 31, name: 'Portland', state: 'Maine', latitude: 43.66, longitude: -70.26 },
+            ],
+          },
+        ]);
+    });
+
+    it('names the state in the globe markers', async () => {
+      const fixture = await render();
+
+      expect(
+        globe(fixture)
+          .markers()
+          .map((m) => m.label),
+      ).toEqual(['Portland, Oregon, United States', 'Portland, Maine, United States']);
+    });
+
+    it('names the state when deleting and restores it on Undo', async () => {
+      const fixture = await render();
+      (fixture.nativeElement.querySelector('mat-expansion-panel-header') as HTMLElement).click();
+      await fixture.whenStable();
+
+      (
+        fixture.nativeElement.querySelector('[aria-label="Delete Portland, Maine"]') as HTMLElement
+      ).click();
+      expect(snackBar.open).toHaveBeenCalledWith('Portland, Maine deleted', 'Undo', {
+        duration: 6000,
+      });
+
+      undo.next();
+
+      expect(travel.addCity).toHaveBeenCalledWith({
+        name: 'Portland',
+        state: 'Maine',
+        countryCode: 'US',
+        latitude: 43.66,
+        longitude: -70.26,
+      });
     });
   });
 
