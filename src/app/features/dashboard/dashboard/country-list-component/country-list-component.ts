@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   afterRenderEffect,
+  computed,
   inject,
   input,
   model,
@@ -13,6 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { CityResponse, CountryResponse } from '../../../../core/models/travel.model';
+import { cityLabels } from '../../../../core/models/city-label';
 import { FlagComponent } from '../../../../shared/components/flag/flag.component';
 
 export interface CityDeleteRequest {
@@ -36,6 +38,10 @@ export class CountryListComponent {
   readonly deleteCity = output<CityDeleteRequest>();
 
   protected readonly cityCount = { '=1': '1 city', other: '# cities' };
+  /** Each city's display name by id: "Portland, Maine" only where the name alone would be ambiguous */
+  protected readonly labels = computed(
+    () => new Map(this.countries().flatMap((country) => [...cityLabels(country.cities ?? [])])),
+  );
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private focusAfterDelete: HTMLElement | null = null;

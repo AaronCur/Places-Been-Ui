@@ -248,6 +248,7 @@ export class AddCityDialogComponent {
     this.travel
       .addCity({
         name: city.name,
+        state: city.stateName,
         countryCode: country.isoCode,
         latitude: city.latitude,
         longitude: city.longitude,

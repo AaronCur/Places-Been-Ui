@@ -159,7 +159,7 @@ describe('AddCityDialogComponent', () => {
     submit(fixture);
 
     expect(sent).toEqual([
-      { name: 'Berlin', countryCode: 'DE', latitude: 52.52, longitude: 13.405 },
+      { name: 'Berlin', state: 'Berlin', countryCode: 'DE', latitude: 52.52, longitude: 13.405 },
     ]);
     expect(dialogRef.close).toHaveBeenCalledWith(created);
   });

@@ -26,6 +26,7 @@ import {
   tap,
 } from 'rxjs';
 import { CountryResponse, StatsSummaryResponse } from '../../../../core/models/travel.model';
+import { cityLabels } from '../../../../core/models/city-label';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
 import { ThemeService } from '../../../../core/services/theme.service';
 import { TravelService } from '../../../../core/services/travel.service';
@@ -84,13 +85,14 @@ export class DashboardComponent {
     () => new Set(this.countries().map((country) => country.isoCode)),
   );
   protected readonly markers = computed<GlobeMarker[]>(() =>
-    this.countries().flatMap((country) =>
-      (country.cities ?? []).map((city) => ({
+    this.countries().flatMap((country) => {
+      const labels = cityLabels(country.cities ?? []);
+      return (country.cities ?? []).map((city) => ({
         lat: city.latitude,
         lng: city.longitude,
-        label: `${city.name}, ${country.name}`,
-      })),
-    ),
+        label: `${labels.get(city.id)}, ${country.name}`,
+      }));
+    }),
   );
   protected readonly landShare = computed(() =>
     this.shapes().length ? landShare(this.shapes(), this.visitedCodes()) : null,
@@ -211,16 +213,19 @@ export class DashboardComponent {
 
   // Delete straight away and offer Undo (the design's pattern) instead of asking for confirmation first
   protected deleteCity({ city, country }: CityDeleteRequest): void {
+    const label = cityLabels(country.cities ?? []).get(city.id) ?? city.name;
     this.travelService
       .deleteCity(city.id)
       .pipe(
         switchMap(() => {
           this.load();
-          return this.snackBar.open(`${city.name} deleted`, 'Undo', { duration: 6000 }).onAction();
+          return this.snackBar.open(`${label} deleted`, 'Undo', { duration: 6000 }).onAction();
         }),
         switchMap(() =>
           this.travelService.addCity({
             name: city.name,
+            // Without it Undo would bring "Portland, Maine" back as a Portland with no state
+            state: city.state ?? null,
             countryCode: country.isoCode,
             latitude: city.latitude,
             longitude: city.longitude,
