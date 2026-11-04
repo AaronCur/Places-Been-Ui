@@ -66,6 +66,34 @@ describe('CountryListComponent', () => {
     expect(fixture.componentInstance.selected()).toBeNull();
   });
 
+  it('adds the state only to cities whose name appears twice in a country', async () => {
+    const usa: CountryResponse = {
+      id: 3,
+      name: 'United States',
+      isoCode: 'US',
+      flag: '🇺🇸',
+      cities: [
+        { id: 30, name: 'Portland', state: 'Oregon', latitude: 45.52, longitude: -122.68 },
+        { id: 31, name: 'Portland', state: 'Maine', latitude: 43.66, longitude: -70.26 },
+        { id: 32, name: 'Seattle', state: 'Washington', latitude: 47.61, longitude: -122.33 },
+      ],
+    };
+    const fixture = TestBed.createComponent(CountryListComponent);
+    fixture.componentRef.setInput('countries', [usa]);
+    fixture.componentRef.setInput('selected', 'US');
+    await fixture.whenStable();
+
+    const rows = [...fixture.nativeElement.querySelectorAll('.city')].map((row: Element) => [
+      row.querySelector('.city-name')!.textContent!.trim(),
+      row.querySelector('button')!.getAttribute('aria-label'),
+    ]);
+    expect(rows).toEqual([
+      ['Portland, Oregon', 'Delete Portland, Oregon'],
+      ['Portland, Maine', 'Delete Portland, Maine'],
+      ['Seattle', 'Delete Seattle'],
+    ]);
+  });
+
   it('asks to delete a city, with its country', async () => {
     const fixture = await render('IT');
     const requests: CityDeleteRequest[] = [];

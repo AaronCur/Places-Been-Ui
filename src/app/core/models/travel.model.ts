@@ -3,6 +3,8 @@
 export interface CityResponse {
   id: number;
   name: string;
+  // The dataset's state/region; left out when there is none (e.g. Gibraltar)
+  state?: string;
   latitude: number;
   longitude: number;
   // Left out (null on the server) when the city is nested inside its CountryResponse
@@ -26,6 +28,8 @@ export interface StatsSummaryResponse {
 
 export interface CityRequest {
   name: string;
+  // Tells same-name cities in one country apart (Portland, Oregon / Maine); null when there is none
+  state: string | null;
   countryCode: string;
   latitude: number;
   longitude: number;
