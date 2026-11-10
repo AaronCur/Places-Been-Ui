@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { CountryResponse } from '../../../../core/models/travel.model';
+import { TripResponse } from '../../../../core/models/trip.model';
 import { CityDeleteRequest, CountryListComponent } from './country-list-component';
 
 const france: CountryResponse = {
@@ -43,6 +44,56 @@ describe('CountryListComponent', () => {
       ['flags/fr.svg', 'France', '1 city'],
       ['flags/it.svg', 'Italy', '2 cities'],
     ]);
+  });
+
+  describe('with trips', () => {
+    const trip = (id: number, cityId: number): TripResponse => ({
+      id,
+      startDate: '2025-05-01',
+      city: { id: cityId, name: '', latitude: 0, longitude: 0 },
+      country: { isoCode: 'IT', name: 'Italy', flag: '🇮🇹' },
+    });
+
+    async function renderWithTrips() {
+      const fixture = TestBed.createComponent(CountryListComponent);
+      fixture.componentRef.setInput('countries', [france, italy]);
+      // Rome twice, Florence never (a city from before trips existed), Lyon once
+      fixture.componentRef.setInput(
+        'tripsByCity',
+        new Map([
+          [20, [trip(1, 20), trip(2, 20)]],
+          [10, [trip(3, 10)]],
+        ]),
+      );
+      fixture.componentRef.setInput('selected', 'IT');
+      await fixture.whenStable();
+      return fixture;
+    }
+
+    it('adds the trip count to each country header', async () => {
+      const fixture = await renderWithTrips();
+      const descriptions = [...fixture.nativeElement.querySelectorAll('mat-panel-description')].map(
+        (d: Element) => d.textContent!.replace(/\s+/g, ' ').trim(),
+      );
+
+      expect(descriptions).toEqual(['1 city · 1 trip', '2 cities · 2 trips']);
+    });
+
+    it('shows a city’s trips in place of delete, which only a city without trips offers', async () => {
+      const fixture = await renderWithTrips();
+      const rows = [...fixture.nativeElement.querySelectorAll('[data-country="IT"] .city')].map(
+        (row: Element) => [
+          row.querySelector('.city-name')!.textContent!.trim(),
+          row.querySelector('.trips')?.textContent?.trim() ?? null,
+          row.querySelector('button')?.getAttribute('aria-label') ?? null,
+        ],
+      );
+
+      expect(rows).toEqual([
+        ['Rome', '2 trips', null],
+        ['Florence', null, 'Delete Florence'],
+      ]);
+    });
   });
 
   it('opens the selected country, e.g. one clicked on the globe', async () => {

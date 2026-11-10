@@ -14,6 +14,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatIconModule } from '@angular/material/icon';
 import { CityResponse, CountryResponse } from '../../../../core/models/travel.model';
+import { TripResponse } from '../../../../core/models/trip.model';
 import { cityLabels } from '../../../../core/models/city-label';
 import { FlagComponent } from '../../../../shared/components/flag/flag.component';
 
@@ -22,8 +23,9 @@ export interface CityDeleteRequest {
   country: CountryResponse;
 }
 
-// "By country" list from the design: one panel per visited country with its cities. Trip rows (dates, edit)
-// replace the delete button once the API has trips; the Timeline tab arrives with them.
+// "By country" list from the design: one panel per visited country with its cities and how many trips each has.
+// Only a city without trips (added before trips existed) can be deleted here: the API refuses the rest, whose
+// trips are deleted one by one instead (edit dialog, next step). Trip rows with dates and the Timeline tab follow.
 @Component({
   selector: 'app-country-list',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,11 +35,24 @@ export interface CityDeleteRequest {
 })
 export class CountryListComponent {
   readonly countries = input.required<CountryResponse[]>();
+  /** Each city's trips by city id; a city missing from it has none */
+  readonly tripsByCity = input<ReadonlyMap<number, readonly TripResponse[]>>(new Map());
   /** ISO code of the open panel; two-way so a globe click can open one and the list can close it */
   readonly selected = model<string | null>(null);
   readonly deleteCity = output<CityDeleteRequest>();
 
   protected readonly cityCount = { '=1': '1 city', other: '# cities' };
+  protected readonly tripCount = { '=1': '1 trip', other: '# trips' };
+  /** Trips per country by ISO code, for the panel header */
+  protected readonly countryTrips = computed(() => {
+    const byCity = this.tripsByCity();
+    return new Map(
+      this.countries().map((country) => [
+        country.isoCode,
+        (country.cities ?? []).reduce((sum, city) => sum + (byCity.get(city.id)?.length ?? 0), 0),
+      ]),
+    );
+  });
   /** Each city's display name by id: "Portland, Maine" only where the name alone would be ambiguous */
   protected readonly labels = computed(
     () => new Map(this.countries().flatMap((country) => [...cityLabels(country.cities ?? [])])),

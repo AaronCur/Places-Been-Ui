@@ -26,7 +26,9 @@ import {
   tap,
 } from 'rxjs';
 import { CountryResponse, StatsSummaryResponse } from '../../../../core/models/travel.model';
+import { TripResponse } from '../../../../core/models/trip.model';
 import { cityLabels } from '../../../../core/models/city-label';
+import { TripService } from '../../../../core/services/trip.service';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
 import { ThemeService } from '../../../../core/services/theme.service';
 import { TravelService } from '../../../../core/services/travel.service';
@@ -65,6 +67,7 @@ import {
 })
 export class DashboardComponent {
   private travelService = inject(TravelService);
+  private tripService = inject(TripService);
   private worldService = inject(WorldService);
   private injector = inject(Injector);
   private snackBar = inject(MatSnackBar);
@@ -72,12 +75,24 @@ export class DashboardComponent {
   protected theme = inject(ThemeService);
   protected mapFocus = inject(MapFocusService);
 
-  // One load for the panel; the list, the globe and the land stat are all derived from `countries`.
-  // `state` is the latest load's status. Loaded data stays on screen through a refresh, even a failed one.
+  // One load for the panel; the list, the globe and the land stat are all derived from `countries`, and the
+  // trip counts from `trips`. Countries stay the source of the places because cities added before trips existed
+  // have none. `state` is the latest load's status. Loaded data stays on screen through a refresh, even a failed one.
   protected readonly state = signal<'loading' | 'ready' | 'error'>('loading');
   private readonly reload$ = new Subject<void>();
   protected readonly stats = signal<StatsSummaryResponse | null>(null);
   protected readonly countries = signal<CountryResponse[]>([]);
+  protected readonly trips = signal<TripResponse[]>([]);
+  /** Each city's trips by city id, newest first (the API's order is kept) */
+  protected readonly tripsByCity = computed(() => {
+    const byCity = new Map<number, TripResponse[]>();
+    for (const trip of this.trips()) {
+      const list = byCity.get(trip.city.id);
+      if (list) list.push(trip);
+      else byCity.set(trip.city.id, [trip]);
+    }
+    return byCity as ReadonlyMap<number, readonly TripResponse[]>;
+  });
   protected readonly shapes = signal<CountryShape[]>([]);
   protected readonly selectedCountry = signal<string | null>(null);
 
@@ -87,11 +102,15 @@ export class DashboardComponent {
   protected readonly markers = computed<GlobeMarker[]>(() =>
     this.countries().flatMap((country) => {
       const labels = cityLabels(country.cities ?? []);
-      return (country.cities ?? []).map((city) => ({
-        lat: city.latitude,
-        lng: city.longitude,
-        label: `${labels.get(city.id)}, ${country.name}`,
-      }));
+      return (country.cities ?? []).map((city) => {
+        const trips = this.tripsByCity().get(city.id)?.length ?? 0;
+        const place = `${labels.get(city.id)}, ${country.name}`;
+        return {
+          lat: city.latitude,
+          lng: city.longitude,
+          label: trips ? `${place} · ${trips === 1 ? '1 trip' : `${trips} trips`}` : place,
+        };
+      });
     }),
   );
   protected readonly landShare = computed(() =>
@@ -140,6 +159,7 @@ export class DashboardComponent {
           forkJoin({
             stats: this.travelService.getStatsSummary(),
             countries: this.travelService.getCountries(true),
+            trips: this.tripService.getTrips(),
           }).pipe(catchError(() => of(null))),
         ),
         takeUntilDestroyed(),
@@ -148,6 +168,7 @@ export class DashboardComponent {
         if (loaded) {
           this.stats.set(loaded.stats);
           this.countries.set(loaded.countries);
+          this.trips.set(loaded.trips);
         }
         this.state.set(loaded ? 'ready' : 'error');
       });

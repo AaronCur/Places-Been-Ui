@@ -10,6 +10,8 @@ import { CountryShape, WorldService } from '../../../../core/services/world.serv
 import { GlobeComponent, GlobeMarker } from '../../../../shared/components/globe/globe.component';
 import { CityRequest, CountryResponse } from '../../../../core/models/travel.model';
 import { MapFocus, MapFocusService } from '../../../../core/services/map-focus.service';
+import { TripResponse } from '../../../../core/models/trip.model';
+import { TripService } from '../../../../core/services/trip.service';
 
 // Stands in for the WebGL globe and records what the dashboard passes it
 @Component({ selector: 'app-globe', template: '' })
@@ -30,8 +32,16 @@ const italy: CountryResponse = {
   cities: [{ id: 20, name: 'Rome', latitude: 41.9, longitude: 12.5 }],
 };
 
+const romeTrip = (id: number): TripResponse => ({
+  id,
+  startDate: '2025-05-01',
+  city: { id: 20, name: 'Rome', latitude: 41.9, longitude: 12.5 },
+  country: { isoCode: 'IT', name: 'Italy', flag: '🇮🇹' },
+});
+
 describe('DashboardComponent', () => {
   let countries$: () => Observable<CountryResponse[]>;
+  let trips$: () => Observable<TripResponse[]>;
   let travel: {
     getStatsSummary: () => Observable<unknown>;
     getCountries: () => Observable<CountryResponse[]>;
@@ -58,6 +68,7 @@ describe('DashboardComponent', () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: TravelService, useValue: travel },
+        { provide: TripService, useValue: { getTrips: () => trips$() } },
         { provide: WorldService, useValue: { getShapes: () => EMPTY } },
         { provide: MatSnackBar, useValue: snackBar },
         { provide: MatDialog, useValue: dialog },
@@ -82,6 +93,7 @@ describe('DashboardComponent', () => {
 
   beforeEach(() => {
     countries$ = () => of([italy]);
+    trips$ = () => of([]); // cities added before trips existed have none
     desktop = true;
   });
 
@@ -128,6 +140,25 @@ describe('DashboardComponent', () => {
 
     expect([...globe(fixture).visitedCodes()]).toEqual(['IT']);
     expect(globe(fixture).markers()).toEqual([{ lat: 41.9, lng: 12.5, label: 'Rome, Italy' }]);
+  });
+
+  it('counts each city’s trips in the list and on its globe marker', async () => {
+    trips$ = () => of([romeTrip(2), romeTrip(1)]);
+    const fixture = await render();
+
+    expect(globe(fixture).markers()).toEqual([
+      { lat: 41.9, lng: 12.5, label: 'Rome, Italy · 2 trips' },
+    ]);
+    expect(
+      fixture.nativeElement.querySelector('mat-panel-description').textContent.replace(/\s+/g, ' '),
+    ).toContain('1 city · 2 trips');
+  });
+
+  it('shows the load error when only the trips fail to load', async () => {
+    trips$ = () => throwError(() => new Error('down'));
+    const fixture = await render();
+
+    expect(fixture.nativeElement.textContent).toContain('Couldn’t load your places');
   });
 
   it('passes focus requests (e.g. from the add dialog) on to the globe', async () => {

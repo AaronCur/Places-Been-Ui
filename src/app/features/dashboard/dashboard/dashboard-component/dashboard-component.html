@@ -41,6 +41,7 @@
     @if (countries().length) {
       <app-country-list
         [countries]="countries()"
+        [tripsByCity]="tripsByCity()"
         [selected]="selectedCountry()"
         (selectedChange)="selectFromList($event)"
         (deleteCity)="deleteCity($event)"
