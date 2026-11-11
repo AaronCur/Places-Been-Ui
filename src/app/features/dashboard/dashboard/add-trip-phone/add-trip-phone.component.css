@@ -33,8 +33,9 @@
   padding: 8px 16px;
 }
 
-/* Summary: buttons over the globe, the panel shaped like the dashboard's sheet */
-.top-bar:first-child {
+/* Summary: buttons float over the globe (only there: the notes screen's bar stays in the flow, above its
+   heading), and the panel is shaped like the dashboard's sheet */
+.summary-bar {
   position: absolute;
   z-index: 1;
   inset: 0 0 auto;
