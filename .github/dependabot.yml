@@ -1,0 +1,23 @@
+# Weekly update PRs, grouped to keep the noise down.
+# Angular packages must move together (core, material, cli...), so they share one group.
+# Major versions (e.g. Angular 22) still arrive as their own PRs, since they need `ng update` migrations.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*"]
+        update-types: [minor, patch]
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
