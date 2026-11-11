@@ -4,8 +4,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { StatsSummaryResponse } from '../../../../core/models/travel.model';
 
-// The stats cards from the design. Trips, Newest country and Trips this year join them once the API has
-// trips (plan steps B3/B4). Counts come from the API; the two shares are computed client-side.
+// The stats from the design: cards on desktop, plain big numbers on a phone. Newest country and Trips this
+// year join them with the stats API (plan step B4). Countries and cities come from the API's summary; the
+// trip count and the two shares are worked out client-side for now.
 @Component({
   selector: 'app-stats-cards',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -15,6 +16,8 @@ import { StatsSummaryResponse } from '../../../../core/models/travel.model';
 })
 export class StatsCardsComponent {
   readonly stats = input.required<StatsSummaryResponse>();
+  /** Trips taken (counted from the trip list until the stats summary has it) */
+  readonly trips = input.required<number>();
   /** Sovereign states visited, out of `countriesTotal` (territories don't count towards this share) */
   readonly countriesVisited = input.required<number>();
   readonly countriesTotal = input.required<number>();

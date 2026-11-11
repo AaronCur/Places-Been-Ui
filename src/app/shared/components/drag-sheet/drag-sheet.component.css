@@ -1,0 +1,88 @@
+/* The host is the sheet's track: the parent sizes it and sets --sheet-peek. Only the sheet takes clicks, so
+   whatever is behind its collapsed position (the globe) still can. */
+:host {
+  display: block;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.peek-probe {
+  position: absolute;
+  top: var(--sheet-peek, 50%);
+}
+
+.sheet {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  background: var(--pb-panel);
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -2px 12px rgb(0 0 0 / 0.16);
+  transform: translateY(var(--sheet-peek, 50%));
+  transition:
+    transform 300ms cubic-bezier(0.2, 0, 0, 1),
+    border-radius 300ms ease;
+  /* Collapsed, every vertical drag belongs to the sheet */
+  touch-action: none;
+}
+
+:host(.expanded) .sheet {
+  transform: translateY(0);
+  border-radius: 0;
+  touch-action: pan-y;
+}
+
+/* While a finger holds it, the sheet follows exactly */
+.sheet.dragging {
+  transition: none;
+}
+
+.handle {
+  flex: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: grab;
+}
+
+.handle:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: -4px;
+  border-radius: 12px;
+}
+
+.grip {
+  width: 32px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mat-sys-outline);
+}
+
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.content::-webkit-scrollbar {
+  display: none;
+}
+
+:host(.expanded) .content {
+  overflow-y: auto;
+  /* Reaching the end of the list doesn't scroll (or pull-to-refresh) the page behind */
+  overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    transition: none;
+  }
+}

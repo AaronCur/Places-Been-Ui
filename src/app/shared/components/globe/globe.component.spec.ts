@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { GlobeComponent, slideStep } from './globe.component';
+import { GlobeComponent, altitudeToFit, slideStep } from './globe.component';
 
 // jsdom has no WebGL, so the real globe can't start here; these cover the overlay and the fallback.
 // The globe itself is checked by running the app (see the verification steps in the plan).
@@ -50,5 +50,23 @@ describe('slideStep', () => {
   it('slides back the same way', () => {
     expect(slideStep(244, 0, 1)).toBe(0);
     expect(slideStep(100, 0, 0.5)).toBe(12.5);
+  });
+});
+
+describe('altitudeToFit', () => {
+  it('fills a square view edge to edge from where the globe exactly spans the field of view', () => {
+    // 90° view: the edges are 45° off-centre, and sin 45° = 1 / distance, so distance √2, altitude √2 − 1
+    expect(altitudeToFit(500, 500, 1, 90)).toBeCloseTo(Math.SQRT2 - 1, 5);
+  });
+
+  it('is limited by the width in a tall (phone) view', () => {
+    // Half as wide as tall: horizontal tan halves, tan(angle) = 0.5, distance √5
+    expect(altitudeToFit(400, 800, 1, 90)).toBeCloseTo(Math.sqrt(5) - 1, 5);
+    // A wider view of the same height doesn't change it once the height is the limit
+    expect(altitudeToFit(1600, 800, 1, 90)).toBeCloseTo(altitudeToFit(800, 800, 1, 90), 5);
+  });
+
+  it('backs off to fill less of the view', () => {
+    expect(altitudeToFit(400, 800, 0.9, 50)).toBeGreaterThan(altitudeToFit(400, 800, 1, 50));
   });
 });

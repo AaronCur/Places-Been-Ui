@@ -21,6 +21,7 @@ class FakeGlobe {
   readonly markers = input.required<GlobeMarker[]>();
   readonly focus = input<MapFocus | null>(null);
   readonly insetRight = input(0);
+  readonly fill = input<number | null>(null);
   readonly countryClick = output<string>();
 }
 
@@ -98,7 +99,7 @@ describe('DashboardComponent', () => {
   });
 
   const clickAdd = async (fixture: Awaited<ReturnType<typeof render>>) => {
-    (fixture.nativeElement.querySelector('button.add') as HTMLElement).click();
+    (fixture.nativeElement.querySelector('button.add, button.add-round') as HTMLElement).click();
     await vi.waitFor(() => expect(dialog.open).toHaveBeenCalled()); // after the lazy import
     await fixture.whenStable();
   };
@@ -125,6 +126,48 @@ describe('DashboardComponent', () => {
 
     expect(dialog.open.mock.calls[0][1]).toMatchObject({ panelClass: 'pb-responsive-dialog' });
     expect(globe(fixture).insetRight()).toBe(0);
+  });
+
+  it('on desktop, shows the stats and list in the side panel', async () => {
+    const fixture = await render();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('section.panel app-stats-cards')).not.toBeNull();
+    expect(el.querySelector('section.panel app-country-list')).not.toBeNull();
+    expect(el.querySelector('app-drag-sheet')).toBeNull();
+    // The extended Add trip button over the globe, and the globe at its desktop zoom
+    expect(el.querySelector('button.add')?.textContent).toContain('Add trip');
+    expect(el.querySelector('button.add-round')).toBeNull();
+    expect(globe(fixture).fill()).toBeNull();
+  });
+
+  it('on a phone, shows them in a drag sheet over the globe, collapsed to start with', async () => {
+    desktop = false;
+    const fixture = await render();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('app-drag-sheet app-stats-cards')).not.toBeNull();
+    expect(el.querySelector('app-drag-sheet app-country-list')).not.toBeNull();
+    expect(el.querySelector('section.panel')).toBeNull();
+    expect(el.querySelector('app-drag-sheet .handle')?.getAttribute('aria-expanded')).toBe('false');
+    // The title stays outside the sheet (hidden visually, but there for screen readers)
+    expect(el.querySelector('app-drag-sheet h1')).toBeNull();
+    expect(el.querySelector('h1')?.textContent).toBe('Places Been');
+    // Add trip is a round button in the top bar, not a floating one over the list
+    expect(el.querySelector('header button.add-round')?.getAttribute('aria-label')).toBe(
+      'Add trip',
+    );
+    expect(el.querySelector('button.add')).toBeNull();
+    // A near-full-width globe
+    expect(globe(fixture).fill()).toBe(0.9);
+  });
+
+  it('passes the number of trips to the stats', async () => {
+    trips$ = () => of([romeTrip(1), romeTrip(2)]);
+    const fixture = await render();
+
+    const counts = [...fixture.nativeElement.querySelectorAll('app-stats-cards .count .value')];
+    expect(counts.map((c) => (c as HTMLElement).textContent?.trim())).toEqual(['1', '1', '2']);
   });
 
   it('after a trip is added, says so, refreshes and opens its country', async () => {
@@ -385,7 +428,9 @@ describe('DashboardComponent', () => {
 
   it('opens one dialog however often the button is clicked while it loads', async () => {
     const fixture = await render();
-    const button = fixture.nativeElement.querySelector('button.add') as HTMLElement;
+    const button = fixture.nativeElement.querySelector(
+      'button.add, button.add-round',
+    ) as HTMLElement;
 
     button.click();
     button.click();

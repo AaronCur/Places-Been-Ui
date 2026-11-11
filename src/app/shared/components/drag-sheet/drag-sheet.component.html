@@ -1,0 +1,18 @@
+<!-- Where the collapsed sheet's top sits, in px: read by the drag code, which can't resolve dvh itself -->
+<span #peekProbe class="peek-probe" aria-hidden="true"></span>
+
+<section #sheet class="sheet" [attr.aria-label]="label()">
+  <button
+    type="button"
+    class="handle"
+    [attr.aria-expanded]="expanded()"
+    [attr.aria-label]="expanded() ? 'Collapse list' : 'Expand list'"
+    (click)="toggle()"
+  >
+    <span class="grip"></span>
+  </button>
+
+  <div #content class="content">
+    <ng-content />
+  </div>
+</section>

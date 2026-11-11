@@ -1,6 +1,7 @@
+/* Six columns: the three counts take two each (a row of three), the two shares three each (a row of two) */
 :host {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -13,14 +14,27 @@
   background: var(--mat-sys-surface-container);
 }
 
+.count {
+  grid-column: span 2;
+  /* A third of the panel is too narrow for the badge beside the number, so it sits above it */
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.share {
+  grid-column: span 3;
+}
+
 .badge {
   flex: 0 0 auto;
   box-sizing: content-box;
-  padding: 8px;
+  padding: 6px;
   border-radius: 50%;
-  font-size: 20px;
-  width: 20px;
-  height: 20px;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
   color: var(--mat-sys-primary);
   background: var(--mat-sys-primary-container);
 }
@@ -48,4 +62,35 @@ mat-progress-bar {
   border-radius: 3px;
   --mat-progress-bar-track-height: 6px;
   --mat-progress-bar-active-indicator-height: 6px;
+}
+
+/* Phone (design): plain big numbers, no cards, badges or bars, so the sheet shows more of the list */
+@media (max-width: 839px) {
+  :host {
+    row-gap: 16px;
+    column-gap: 8px;
+  }
+
+  .card {
+    padding: 0;
+    gap: 2px;
+    background: none;
+    border-radius: 0;
+    align-items: center;
+    text-align: center;
+  }
+
+  .badge,
+  mat-progress-bar {
+    display: none;
+  }
+
+  .value {
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .label {
+    font-size: 12px;
+  }
 }

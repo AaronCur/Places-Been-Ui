@@ -106,3 +106,11 @@
     display: none;
   }
 }
+
+/* Phone (design): just the globe under the page title, which sits where these would; pinch to zoom */
+@media (max-width: 839px) {
+  .legend,
+  .controls {
+    display: none;
+  }
+}

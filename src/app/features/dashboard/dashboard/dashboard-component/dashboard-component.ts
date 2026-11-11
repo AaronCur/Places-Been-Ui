@@ -8,6 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { NgTemplateOutlet } from '@angular/common';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -45,6 +46,7 @@ import {
   CountryListComponent,
 } from '../country-list-component/country-list-component';
 import { StatsCardsComponent } from '../stats-cards-component/stats-cards-component';
+import { DragSheetComponent } from '../../../../shared/components/drag-sheet/drag-sheet.component';
 import {
   DESKTOP_QUERY,
   DOCKED_DIALOG_INSET,
@@ -61,6 +63,8 @@ import {
     CountryListComponent,
     GlobeComponent,
     StatsCardsComponent,
+    DragSheetComponent,
+    NgTemplateOutlet,
   ],
   templateUrl: './dashboard-component.html',
   styleUrls: ['./dashboard-component.css'],
@@ -122,14 +126,16 @@ export class DashboardComponent {
     () => [...this.visitedCodes()].filter((code) => SOVEREIGN_STATES.has(code)).length,
   );
 
-  // On desktop the add dialog opens to one side so the globe stays visible. When it docks over the globe's
-  // right side, the globe re-centres in the space left of it.
-  private readonly isDesktop = toSignal(
+  // Desktop: a side panel, and the add dialog docks to one side so the globe stays visible (the globe
+  // re-centres in the space left of it). Phone: the panel is a drag sheet over the globe.
+  protected readonly isDesktop = toSignal(
     inject(BreakpointObserver)
       .observe(DESKTOP_QUERY)
       .pipe(map((state) => state.matches)),
     { initialValue: false },
   );
+  /** Phone: the sheet is pulled up over the globe */
+  protected readonly sheetExpanded = signal(false);
   private readonly dialogDocked = signal(false);
   private addDialogOpen = false;
   protected readonly globeInset = computed(() => (this.dialogDocked() ? DOCKED_DIALOG_INSET : 0));
