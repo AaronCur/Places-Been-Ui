@@ -49,7 +49,7 @@ import {
   DESKTOP_QUERY,
   DOCKED_DIALOG_INSET,
   DialogPlacement,
-} from '../add-city-dialog-component/docked-dialog';
+} from '../add-trip-dialog-component/docked-dialog';
 
 @Component({
   selector: 'app-dashboard',
@@ -189,7 +189,7 @@ export class DashboardComponent {
   }
 
   // Opening a country in the list turns the globe to it. Globe clicks don't (it's already in view), and
-  // neither does adding a city (the dialog has already flown there).
+  // neither does adding a trip (the dialog has already flown there).
   protected selectFromList(isoCode: string | null): void {
     this.selectedCountry.set(isoCode);
     const country = this.countries().find((c) => c.isoCode === isoCode);
@@ -199,18 +199,18 @@ export class DashboardComponent {
   }
 
   // The dialog, MatDialog and the form/autocomplete modules are one lazy chunk, downloaded on the first click
-  protected openAddCity(): void {
+  protected openAddTrip(): void {
     if (this.addDialogOpen) return; // a second click while that chunk is on its way
     this.addDialogOpen = true;
 
     const placement: DialogPlacement = this.isDesktop() ? 'docked' : 'centered';
-    from(import('../add-city-dialog-component/add-city-dialog-component'))
+    from(import('../add-trip-dialog-component/add-trip-dialog-component'))
       .pipe(
-        switchMap(({ openAddCityDialog }) => {
+        switchMap(({ openAddTripDialog }) => {
           // Only now, as the dialog appears: on the first click the lazy chunk takes a moment to arrive,
           // and the globe shouldn't start sliding before there's a dialog to make room for
           this.dialogDocked.set(placement === 'docked');
-          return openAddCityDialog(this.injector, placement);
+          return openAddTripDialog(this.injector, placement);
         }),
         finalize(() => {
           this.addDialogOpen = false;
@@ -220,9 +220,9 @@ export class DashboardComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (created) => {
-          this.selectedCountry.set(created.countryCode ?? null);
-          this.snackBar.open(`${created.name} added`, undefined, { duration: 3000 });
+        next: (trip) => {
+          this.selectedCountry.set(trip.country.isoCode);
+          this.snackBar.open(`${trip.city.name} trip added`, undefined, { duration: 3000 });
           this.load();
         },
         error: () =>

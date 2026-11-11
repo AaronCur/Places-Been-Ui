@@ -14,9 +14,11 @@ import {
   FormBuilder,
   ReactiveFormsModule,
   ValidationErrors,
+  Validators,
 } from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import {
   MatDialog,
   MatDialogConfig,
@@ -37,10 +39,12 @@ import {
   startWith,
   switchMap,
 } from 'rxjs';
-import { CityResponse, ErrorResponse } from '../../../../core/models/travel.model';
+import { ErrorResponse } from '../../../../core/models/travel.model';
+import { TripRequest, TripResponse } from '../../../../core/models/trip.model';
+import { provideDayFirstDates, toIsoDate } from '../../../../core/dates/day-first-date-adapter';
 import { CityOption, CountryOption, PlacesService } from '../../../../core/services/places.service';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
-import { TravelService } from '../../../../core/services/travel.service';
+import { TripService } from '../../../../core/services/trip.service';
 import { FlagComponent } from '../../../../shared/components/flag/flag.component';
 import { DOCKED_DIALOG_MARGIN, DOCKED_DIALOG_WIDTH, DialogPlacement } from './docked-dialog';
 
@@ -49,22 +53,26 @@ const MAX_CITY_OPTIONS = 50;
 // Camera heights (globe radii) for the fly-to: close enough to see the country, then the city
 const COUNTRY_ALTITUDE = 1.4;
 const CITY_ALTITUDE = 0.6;
+// The API's limits (TripRequest)
+export const MAX_NOTES = 2000;
+const MAX_CITY_NAME = 255;
+
 /**
- * Opens the dialog; emits the created city, or undefined if cancelled. It lives in this (lazy) file so that
+ * Opens the dialog; emits the created trip, or undefined if cancelled. It lives in this (lazy) file so that
  * MatDialog itself, not just the component, stays out of the initial bundle: callers import() this file and
  * pass their injector instead of injecting MatDialog.
  *
- * On desktop it docks at the bottom right, just above the Add city button, with a light backdrop, so the
+ * On desktop it docks at the bottom right, just above the Add trip button, with a light backdrop, so the
  * globe stays in view and can be seen turning to the picked country. `centered` is the phone layout, full
  * screen via the pb-responsive-dialog class.
  */
-export function openAddCityDialog(
+export function openAddTripDialog(
   injector: Injector,
   placement: DialogPlacement,
-): Observable<CityResponse | undefined> {
+): Observable<TripResponse | undefined> {
   return injector
     .get(MatDialog)
-    .open<AddCityDialogComponent, void, CityResponse>(AddCityDialogComponent, {
+    .open<AddTripDialogComponent, void, TripResponse>(AddTripDialogComponent, {
       ...PLACEMENTS[placement],
       autoFocus: 'first-tabbable',
     })
@@ -88,16 +96,45 @@ type CitiesState =
 const isPicked = <T extends object>(value: T | string): value is T => typeof value === 'object';
 const picked = (control: AbstractControl): ValidationErrors | null =>
   isPicked(control.value) ? null : { notPicked: true };
+// Free-text city: some text that isn't only spaces
+const named = (control: AbstractControl): ValidationErrors | null =>
+  typeof control.value === 'string' && control.value.trim() ? null : { required: true };
 
-// "Add trip" dialog from the design, minus Dates and Notes until the API has trips. Country and city come from
-// the countries dataset, so the coordinates and ISO code the API needs are always right.
+// A trip can't start after today (the API's @PastOrPresent). A validator rather than the datepicker's [max]:
+// on a range input [max] would stop the end too, and a trip you're on now can end in the future.
+const notFuture = (control: AbstractControl<Date | null>): ValidationErrors | null => {
+  const date = control.value;
+  if (!date) return null;
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return date > today ? { future: true } : null;
+};
+
+// The API's 400 lists every bad field as "field: message, field: message". Its field names, mapped to the
+// control the error belongs under, with the message to show there (the API's own are Bean Validation defaults).
+export type ServerField = 'country' | 'city' | 'start' | 'end' | 'notes';
+const SERVER_FIELDS: Record<string, { control: ServerField; message: string }> = {
+  countryCode: { control: 'country', message: 'This country isn’t supported yet' },
+  cityName: { control: 'city', message: 'Check the city name' },
+  state: { control: 'city', message: 'Check the city' },
+  latitude: { control: 'city', message: 'This place isn’t on the map. Try another city.' },
+  longitude: { control: 'city', message: 'This place isn’t on the map. Try another city.' },
+  startDate: { control: 'start', message: 'The trip can’t start in the future' },
+  endDate: { control: 'end', message: 'The end can’t be before the start' },
+  notes: { control: 'notes', message: `Notes can be up to ${MAX_NOTES} characters` },
+};
+
+// Country and city come from the countries dataset, so the coordinates and ISO code the API needs are always
+// right. For the few countries with no cities in the dataset (Macau, Gibraltar…) the city is typed instead and
+// the pin goes at the country's centre point.
 @Component({
-  selector: 'app-add-city-dialog',
+  selector: 'app-add-trip-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
     MatAutocompleteModule,
     MatButtonModule,
+    MatDatepickerModule,
     MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
@@ -105,19 +142,30 @@ const picked = (control: AbstractControl): ValidationErrors | null =>
     MatProgressBarModule,
     FlagComponent,
   ],
-  templateUrl: './add-city-dialog-component.html',
-  styleUrl: './add-city-dialog-component.css',
+  providers: [provideDayFirstDates()],
+  templateUrl: './add-trip-dialog-component.html',
+  styleUrl: './add-trip-dialog-component.css',
 })
-export class AddCityDialogComponent {
-  private dialogRef = inject<MatDialogRef<AddCityDialogComponent, CityResponse>>(MatDialogRef);
+export class AddTripDialogComponent {
+  private dialogRef = inject<MatDialogRef<AddTripDialogComponent, TripResponse>>(MatDialogRef);
   private places = inject(PlacesService);
-  private travel = inject(TravelService);
+  private trips = inject(TripService);
   private fb = inject(FormBuilder).nonNullable;
   private mapFocus = inject(MapFocusService);
+
+  protected readonly maxNotes = MAX_NOTES;
 
   protected readonly form = this.fb.group({
     country: this.fb.control<CountryOption | string>('', { validators: picked }),
     city: this.fb.control<CityOption | string>('', { validators: picked }),
+    dates: this.fb.group({
+      start: this.fb.control<Date | null>(null, {
+        validators: [Validators.required, notFuture],
+      }),
+      // Empty for a day trip
+      end: this.fb.control<Date | null>(null),
+    }),
+    notes: this.fb.control('', { validators: Validators.maxLength(MAX_NOTES) }),
   });
 
   protected readonly saving = signal(false);
@@ -175,7 +223,8 @@ export class AddCityDialogComponent {
     { initialValue: { status: 'idle' } as CitiesState },
   );
 
-  protected readonly noCities = computed(() => {
+  /** The picked country has no cities in the dataset, so the city is typed rather than picked */
+  protected readonly freeTextCity = computed(() => {
     const state = this.citiesState();
     return state.status === 'ready' && !state.cities.length;
   });
@@ -207,6 +256,14 @@ export class AddCityDialogComponent {
         }
       });
 
+    // The city's rule follows the dataset: picked from the list, or typed when the country has no list
+    effect(() => {
+      city.setValidators(
+        this.freeTextCity() ? [named, Validators.maxLength(MAX_CITY_NAME)] : picked,
+      );
+      city.updateValueAndValidity({ emitEvent: false });
+    });
+
     // No closing while saving: the POST would still finish, but nobody would be left to refresh the list
     effect(() => {
       this.dialogRef.disableClose = this.saving();
@@ -237,46 +294,97 @@ export class AddCityDialogComponent {
   }
 
   protected save(): void {
-    const { country, city } = this.form.getRawValue();
-    if (this.form.invalid || !isPicked(country) || !isPicked(city)) {
+    const { country, dates, notes } = this.form.getRawValue();
+    const place = isPicked(country) ? this.placeOf(country) : null;
+    if (this.form.invalid || !isPicked(country) || !place || !dates.start) {
       this.form.markAllAsTouched();
       return;
     }
 
+    const request: TripRequest = {
+      ...place,
+      countryCode: country.isoCode,
+      startDate: toIsoDate(dates.start),
+      endDate: dates.end ? toIsoDate(dates.end) : null,
+      notes: notes.trim() || null,
+    };
+
     this.saving.set(true);
     this.formError.set(null);
-    this.travel
-      .addCity({
-        name: city.name,
-        state: city.stateName,
-        countryCode: country.isoCode,
-        latitude: city.latitude,
-        longitude: city.longitude,
-      })
-      .subscribe({
-        next: (created) => this.dialogRef.close(created),
-        error: (error: HttpErrorResponse) => {
-          this.saving.set(false);
-          this.showServerError(error);
-        },
-      });
+    this.trips.addTrip(request).subscribe({
+      next: (created) => this.dialogRef.close(created),
+      error: (error: HttpErrorResponse) => {
+        this.saving.set(false);
+        this.showServerError(error);
+      },
+    });
   }
 
-  // Server errors go next to the field they're about
-  private showServerError(error: HttpErrorResponse): void {
-    const message = (error.error as ErrorResponse | null)?.message;
-    if (error.status === 409) {
-      this.form.controls.city.setErrors({ server: 'You’ve already added this city' });
-    } else if (error.status === 400 && message?.startsWith('Unknown country code')) {
-      this.form.controls.country.setErrors({ server: 'This country isn’t supported yet' });
-    } else {
-      this.formError.set(
-        error.status === 0
-          ? 'Can’t reach the server. Check your connection and try again.'
-          : 'Something went wrong while saving. Please try again.',
-      );
+  // The city part of the request: the picked city, or the typed name at the country's centre point
+  private placeOf(
+    country: CountryOption,
+  ): Pick<TripRequest, 'cityName' | 'state' | 'latitude' | 'longitude'> | null {
+    const city = this.form.controls.city.value;
+    if (isPicked(city)) {
+      return {
+        cityName: city.name,
+        state: city.stateName,
+        latitude: city.latitude,
+        longitude: city.longitude,
+      };
     }
+    if (!this.freeTextCity()) return null;
+    if (!Number.isFinite(country.latitude) || !Number.isFinite(country.longitude)) {
+      this.form.controls.city.setErrors({ server: SERVER_FIELDS['latitude'].message });
+      return null;
+    }
+    return {
+      cityName: city.trim(),
+      state: null,
+      latitude: country.latitude,
+      longitude: country.longitude,
+    };
   }
+
+  // Server errors go next to the field they're about; anything else goes above the buttons
+  private showServerError(error: HttpErrorResponse): void {
+    const message = (error.error as ErrorResponse | null)?.message ?? '';
+    const fields =
+      error.status === 400 ? serverFieldErrors(message) : new Map<ServerField, string>();
+    if (fields.size) {
+      for (const [field, text] of fields) this.control(field).setErrors({ server: text });
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.formError.set(
+      error.status === 0
+        ? 'Can’t reach the server. Check your connection and try again.'
+        : 'Something went wrong while saving. Please try again.',
+    );
+  }
+
+  private control(field: ServerField): AbstractControl {
+    const { dates, ...controls } = this.form.controls;
+    return field === 'start' || field === 'end' ? dates.controls[field] : controls[field];
+  }
+}
+
+/**
+ * The controls named in an API 400 message, with what to show under each. Handles the validation format
+ * ("startDate: must be…, endDate: …") and the unknown-country one ("Unknown country code: XX").
+ */
+export function serverFieldErrors(message: string): Map<ServerField, string> {
+  const errors = new Map<ServerField, string>();
+  if (message.startsWith('Unknown country code')) {
+    errors.set('country', SERVER_FIELDS['countryCode'].message);
+    return errors;
+  }
+  // Split before each "field: " so commas inside a message don't break it up
+  for (const part of message.split(/, (?=\w+: )/)) {
+    const known = SERVER_FIELDS[part.slice(0, part.indexOf(':'))];
+    if (known && !errors.has(known.control)) errors.set(known.control, known.message);
+  }
+  return errors;
 }
 
 /**

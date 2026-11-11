@@ -127,6 +127,38 @@ describe('DashboardComponent', () => {
     expect(globe(fixture).insetRight()).toBe(0);
   });
 
+  it('after a trip is added, says so, refreshes and opens its country', async () => {
+    const fixture = await render();
+    trips$ = () => of([romeTrip(1)]);
+
+    await clickAdd(fixture);
+    dialogClosed.next(romeTrip(1));
+    dialogClosed.complete();
+    await fixture.whenStable();
+
+    expect(snackBar.open).toHaveBeenCalledWith('Rome trip added', undefined, { duration: 3000 });
+    expect(fixture.nativeElement.querySelector('mat-expansion-panel').classList).toContain(
+      'mat-expanded',
+    );
+    // The reload picked up the new trip
+    expect(globe(fixture).markers()).toEqual([
+      { lat: 41.9, lng: 12.5, label: 'Rome, Italy · 1 trip' },
+    ]);
+  });
+
+  it('does nothing more when the add dialog is cancelled', async () => {
+    const fixture = await render();
+    trips$ = vi.fn(() => of([]));
+
+    await clickAdd(fixture);
+    dialogClosed.next(undefined);
+    dialogClosed.complete();
+    await fixture.whenStable();
+
+    expect(snackBar.open).not.toHaveBeenCalled();
+    expect(trips$).not.toHaveBeenCalled();
+  });
+
   it('shows the stats and the visited countries', async () => {
     const fixture = await render();
     const el = fixture.nativeElement as HTMLElement;
@@ -198,7 +230,7 @@ describe('DashboardComponent', () => {
     });
   });
 
-  it('invites adding a first city when nothing is visited yet', async () => {
+  it('invites adding a first trip when nothing is visited yet', async () => {
     countries$ = () => of([]);
     const fixture = await render();
 

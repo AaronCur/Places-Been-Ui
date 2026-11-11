@@ -1,4 +1,4 @@
-// Placement and sizes of the Add city dialog, shared with the dashboard. A separate file on purpose:
+// Placement and sizes of the Add trip dialog, shared with the dashboard. A separate file on purpose:
 // importing them from the dialog's own file would pull the whole lazy dialog into the initial bundle.
 
 /** centered: phone (full screen) · docked: desktop, bottom right above the floating button */

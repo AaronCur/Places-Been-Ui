@@ -49,7 +49,7 @@
     } @else {
       <div class="notice">
         <mat-icon aria-hidden="true">explore</mat-icon>
-        <p>Nothing scratched off yet. Add the first city you’ve been to.</p>
+        <p>Nothing scratched off yet. Add your first trip.</p>
       </div>
     }
   }
@@ -66,8 +66,8 @@
     (countryClick)="selectedCountry.set($event)"
   />
 
-  <button mat-fab extended type="button" class="add" (click)="openAddCity()">
+  <button mat-fab extended type="button" class="add" (click)="openAddTrip()">
     <mat-icon>add_location_alt</mat-icon>
-    Add city
+    Add trip
   </button>
 </section>
