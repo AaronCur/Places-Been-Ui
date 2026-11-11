@@ -1,6 +1,6 @@
 <!-- Desktop: top of the side panel. Phone: a bar of round buttons over the globe (the title is only
      there for screen readers), with Add trip in it rather than floating over the list. -->
-<header class="title-row">
+<header class="title-row" [class.covered]="addTripOpen() && !isDesktop()">
   <mat-icon class="logo" aria-hidden="true">public</mat-icon>
   <h1>Places Been</h1>
   <button

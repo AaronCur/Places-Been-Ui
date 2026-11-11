@@ -19,8 +19,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatListModule } from '@angular/material/list';
 import { Subject, catchError, map, of, startWith, switchMap } from 'rxjs';
-import { CountryResponse } from '../../../../../core/models/travel.model';
-import { TripResponse } from '../../../../../core/models/trip.model';
 import {
   CityOption,
   CountryOption,
@@ -33,51 +31,16 @@ import {
   placeAtCentre,
   placeFromCity,
 } from '../../add-trip-shared/trip-form';
+import { VisitedCountry, cityKey, count } from '../visited';
 
 // A country can have thousands of cities; the list is capped while nothing narrows it
 const MAX_CITY_OPTIONS = 50;
-
-/** A country already visited: listed first ("Been before"), with trip counts for its cities */
-export interface VisitedCountry {
-  isoCode: string;
-  /** "2 cities · 3 trips" */
-  summary: string;
-  /** Trips per city, by cityKey(name, state) */
-  cityTrips: ReadonlyMap<string, number>;
-}
 
 export type PickerStep = 'countries' | 'cities';
 
 type CitiesState =
   | { status: 'idle' | 'loading' | 'error' }
   | { status: 'ready'; cities: CityOption[] };
-
-/** Matches a dataset city to a visited one, which only shares its name and state (the ids differ) */
-export function cityKey(name: string, state: string | null | undefined): string {
-  return `${name.toLocaleLowerCase()}|${(state ?? '').toLocaleLowerCase()}`;
-}
-
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** The dashboard's places as the picker's "Been before" list, in the dashboard's order */
-export function visitedCountries(
-  countries: readonly CountryResponse[],
-  tripsByCity: ReadonlyMap<number, readonly TripResponse[]>,
-): VisitedCountry[] {
-  return countries.map((country) => {
-    const cities = country.cities ?? [];
-    const cityTrips = new Map<string, number>();
-    let trips = 0;
-    for (const city of cities) {
-      const n = tripsByCity.get(city.id)?.length ?? 0;
-      trips += n;
-      if (n) cityTrips.set(cityKey(city.name, city.state), n);
-    }
-    const summary = [count(cities.length, 'city', 'cities')];
-    if (trips) summary.push(count(trips, 'trip', 'trips'));
-    return { isoCode: country.isoCode, summary: summary.join(' · '), cityTrips };
-  });
-}
 
 /**
  * Where the trip was, as two full-screen searches (Material 3's search view on a phone): a country, then one
@@ -165,15 +128,17 @@ export class PlacePickerComponent {
     return this.query().trim() ? `${n} found` : count(n, 'city', 'cities');
   });
 
-  /** The typed text as a new place, unless it's exactly a listed city (then that's the one to tap) */
+  /**
+   * The typed text as a new place, once no listed city starts with it: "ath" is probably on its way to
+   * Athens, so offering "Add ath" then would only invite a mistaken tap. "Athens Riviera" still gets it.
+   */
   protected readonly newPlace = computed(() => {
     const country = this.country();
     const typed = this.query().trim();
     if (!country || !typed || this.citiesState().status !== 'ready') return null;
-    const listed = this.allCities().some(
-      (c) => c.name.toLocaleLowerCase() === typed.toLocaleLowerCase(),
-    );
-    return listed ? null : placeAtCentre(country, typed);
+    const text = typed.toLocaleLowerCase();
+    const mayBeListed = this.allCities().some((c) => c.name.toLocaleLowerCase().startsWith(text));
+    return mayBeListed ? null : placeAtCentre(country, typed);
   });
 
   protected readonly searchLabel = computed(() => {

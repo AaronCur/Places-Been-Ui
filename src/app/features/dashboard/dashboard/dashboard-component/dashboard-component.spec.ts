@@ -119,14 +119,41 @@ describe('DashboardComponent', () => {
     expect(globe(fixture).insetRight()).toBe(0);
   });
 
-  it('on a phone, opens the add dialog full screen and leaves the globe alone', async () => {
+  it('on a phone, opens the full-screen Add trip with the places been, and leaves the globe alone', async () => {
     desktop = false;
+    trips$ = () => of([romeTrip(1)]);
     const fixture = await render();
 
     await clickAdd(fixture);
 
-    expect(dialog.open.mock.calls[0][1]).toMatchObject({ panelClass: 'pb-responsive-dialog' });
+    expect(dialog.open.mock.calls[0][1]).toMatchObject({
+      panelClass: 'pb-phone-add-trip',
+      disableClose: true,
+      data: { visited: [expect.objectContaining({ isoCode: 'IT', summary: '1 city · 1 trip' })] },
+    });
     expect(globe(fixture).insetRight()).toBe(0);
+  });
+
+  it('shows a place picked but not saved yet as a highlighted pin', async () => {
+    const fixture = await render();
+    const focus = TestBed.inject(MapFocusService);
+
+    focus.showPin({ lat: 48.9, lng: 2.35, label: 'Paris, France' });
+    await fixture.whenStable();
+    expect(globe(fixture).markers().at(-1)).toEqual({
+      lat: 48.9,
+      lng: 2.35,
+      label: 'Paris, France',
+      highlight: true,
+    });
+
+    focus.showPin(null);
+    await fixture.whenStable();
+    expect(
+      globe(fixture)
+        .markers()
+        .some((m) => m.highlight),
+    ).toBe(false);
   });
 
   it('on desktop, shows the stats and list in the side panel', async () => {

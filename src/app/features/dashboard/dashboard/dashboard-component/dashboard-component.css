@@ -156,6 +156,11 @@ h1 {
     color: var(--mat-sys-on-surface);
   }
 
+  /* The phone's Add trip has its own close and Save buttons in the same place */
+  .title-row.covered {
+    visibility: hidden;
+  }
+
   .title-row .add-round {
     border-color: transparent;
     background: var(--mat-sys-primary);

@@ -47,11 +47,8 @@ import {
 } from '../country-list-component/country-list-component';
 import { StatsCardsComponent } from '../stats-cards-component/stats-cards-component';
 import { DragSheetComponent } from '../../../../shared/components/drag-sheet/drag-sheet.component';
-import {
-  DESKTOP_QUERY,
-  DOCKED_DIALOG_INSET,
-  DialogPlacement,
-} from '../add-trip-dialog-component/docked-dialog';
+import { DESKTOP_QUERY, DOCKED_DIALOG_INSET } from '../add-trip-dialog-component/docked-dialog';
+import { visitedCountries } from '../add-trip-phone/visited';
 
 @Component({
   selector: 'app-dashboard',
@@ -103,8 +100,8 @@ export class DashboardComponent {
   protected readonly visitedCodes = computed(
     () => new Set(this.countries().map((country) => country.isoCode)),
   );
-  protected readonly markers = computed<GlobeMarker[]>(() =>
-    this.countries().flatMap((country) => {
+  protected readonly markers = computed<GlobeMarker[]>(() => [
+    ...this.countries().flatMap((country) => {
       const labels = cityLabels(country.cities ?? []);
       return (country.cities ?? []).map((city) => {
         const trips = this.tripsByCity().get(city.id)?.length ?? 0;
@@ -116,7 +113,9 @@ export class DashboardComponent {
         };
       });
     }),
-  );
+    // The place picked in the phone's Add trip, highlighted until it's saved or dropped
+    ...(this.mapFocus.pin() ? [{ ...this.mapFocus.pin()!, highlight: true }] : []),
+  ]);
   protected readonly landShare = computed(() =>
     this.shapes().length ? landShare(this.shapes(), this.visitedCodes()) : null,
   );
@@ -137,7 +136,8 @@ export class DashboardComponent {
   /** Phone: the sheet is pulled up over the globe */
   protected readonly sheetExpanded = signal(false);
   private readonly dialogDocked = signal(false);
-  private addDialogOpen = false;
+  /** Add trip is open (or its chunk on its way); on a phone its own buttons replace the dashboard's */
+  protected readonly addTripOpen = signal(false);
   protected readonly globeInset = computed(() => (this.dialogDocked() ? DOCKED_DIALOG_INSET : 0));
 
   protected readonly themeIcon = computed(
@@ -204,22 +204,32 @@ export class DashboardComponent {
     if (focus) this.mapFocus.focus(focus);
   }
 
-  // The dialog, MatDialog and the form/autocomplete modules are one lazy chunk, downloaded on the first click
+  // Each dialog, MatDialog and its modules are a lazy chunk, downloaded on the first click. Desktop: the
+  // docked form beside the globe. Phone: a full-screen summary with pickers, over the globe.
   protected openAddTrip(): void {
-    if (this.addDialogOpen) return; // a second click while that chunk is on its way
-    this.addDialogOpen = true;
+    if (this.addTripOpen()) return; // a second click while that chunk is on its way
+    this.addTripOpen.set(true);
 
-    const placement: DialogPlacement = this.isDesktop() ? 'docked' : 'centered';
-    from(import('../add-trip-dialog-component/add-trip-dialog-component'))
+    const opened$ = this.isDesktop()
+      ? from(import('../add-trip-dialog-component/add-trip-dialog-component')).pipe(
+          switchMap(({ openAddTripDialog }) => {
+            // Only now, as the dialog appears: on the first click the lazy chunk takes a moment to arrive,
+            // and the globe shouldn't start sliding before there's a dialog to make room for
+            this.dialogDocked.set(true);
+            return openAddTripDialog(this.injector);
+          }),
+        )
+      : from(import('../add-trip-phone/add-trip-phone.component')).pipe(
+          switchMap(({ openAddTripPhoneDialog }) =>
+            openAddTripPhoneDialog(this.injector, {
+              visited: visitedCountries(this.countries(), this.tripsByCity()),
+            }),
+          ),
+        );
+    opened$
       .pipe(
-        switchMap(({ openAddTripDialog }) => {
-          // Only now, as the dialog appears: on the first click the lazy chunk takes a moment to arrive,
-          // and the globe shouldn't start sliding before there's a dialog to make room for
-          this.dialogDocked.set(placement === 'docked');
-          return openAddTripDialog(this.injector, placement);
-        }),
         finalize(() => {
-          this.addDialogOpen = false;
+          this.addTripOpen.set(false);
           this.dialogDocked.set(false);
         }),
         filter((created) => !!created),

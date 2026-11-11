@@ -19,12 +19,7 @@ import {
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import {
-  MatDialog,
-  MatDialogConfig,
-  MatDialogModule,
-  MatDialogRef,
-} from '@angular/material/dialog';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -60,7 +55,7 @@ import {
   saveFailedMessage,
   serverFieldErrors,
 } from '../add-trip-shared/trip-form';
-import { DOCKED_DIALOG_MARGIN, DOCKED_DIALOG_WIDTH, DialogPlacement } from './docked-dialog';
+import { DOCKED_DIALOG_MARGIN, DOCKED_DIALOG_WIDTH } from './docked-dialog';
 
 // All ~250 countries render fine; a country can have thousands of cities, so those are capped while typing
 const MAX_CITY_OPTIONS = 50;
@@ -73,31 +68,20 @@ const CITY_ALTITUDE = 0.6;
  * MatDialog itself, not just the component, stays out of the initial bundle: callers import() this file and
  * pass their injector instead of injecting MatDialog.
  *
- * On desktop it docks at the bottom right, just above the Add trip button, with a light backdrop, so the
- * globe stays in view and can be seen turning to the picked country. `centered` is the phone layout, full
- * screen via the pb-responsive-dialog class.
+ * It docks at the bottom right, just above the Add trip button, with a light backdrop, so the globe stays in
+ * view and can be seen turning to the picked country. (Phones get add-trip-phone instead.)
  */
-export function openAddTripDialog(
-  injector: Injector,
-  placement: DialogPlacement,
-): Observable<TripResponse | undefined> {
+export function openAddTripDialog(injector: Injector): Observable<TripResponse | undefined> {
   return injector
     .get(MatDialog)
     .open<AddTripDialogComponent, void, TripResponse>(AddTripDialogComponent, {
-      ...PLACEMENTS[placement],
+      width: `${DOCKED_DIALOG_WIDTH}px`,
+      position: { right: `${DOCKED_DIALOG_MARGIN}px`, bottom: '96px' },
+      backdropClass: 'pb-light-backdrop',
       autoFocus: 'first-tabbable',
     })
     .afterClosed();
 }
-
-const PLACEMENTS: Record<DialogPlacement, MatDialogConfig> = {
-  centered: { width: '520px', maxWidth: '100vw', panelClass: 'pb-responsive-dialog' },
-  docked: {
-    width: `${DOCKED_DIALOG_WIDTH}px`,
-    position: { right: `${DOCKED_DIALOG_MARGIN}px`, bottom: '96px' },
-    backdropClass: 'pb-light-backdrop',
-  },
-};
 
 type CitiesState =
   | { status: 'idle' | 'loading' | 'error' }

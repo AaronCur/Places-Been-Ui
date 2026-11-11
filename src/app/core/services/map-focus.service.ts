@@ -16,8 +16,23 @@ export class MapFocusService {
   private readonly _target = signal<MapFocus | null>(null);
   readonly target = this._target.asReadonly();
 
+  private readonly _pin = signal<MapPin | null>(null);
+  /** A place picked but not saved yet (the phone's add dialog), shown highlighted until it's saved or dropped */
+  readonly pin = this._pin.asReadonly();
+
   focus(target: MapFocus): void {
     // A fresh object every time, so asking for the same place twice still moves the camera back there
     this._target.set({ ...target });
   }
+
+  showPin(pin: MapPin | null): void {
+    this._pin.set(pin);
+  }
+}
+
+export interface MapPin {
+  lat: number;
+  lng: number;
+  /** Tooltip text, e.g. "Rome, Italy" */
+  label: string;
 }

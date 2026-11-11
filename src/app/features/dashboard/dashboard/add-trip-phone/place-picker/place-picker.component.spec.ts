@@ -1,11 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Observable, of, throwError } from 'rxjs';
-import {
-  PlacePickerComponent,
-  VisitedCountry,
-  cityKey,
-  visitedCountries,
-} from './place-picker.component';
+import { PlacePickerComponent } from './place-picker.component';
+import { VisitedCountry, cityKey, visitedCountries } from '../visited';
 import {
   CityOption,
   CountryOption,
@@ -187,14 +183,19 @@ describe('PlacePickerComponent', () => {
     ]);
   });
 
-  it('doesn’t offer a new place for a name that is a listed city', async () => {
+  it('doesn’t offer a new place while the text could still be a listed city', async () => {
     const f = await render();
     await openGermany(f);
 
-    await type(f, 'bonn');
-
+    await type(f, 'bon'); // on its way to Bonn
     expect(rows(f)).toEqual(['Bonn North Rhine-Westphalia']);
     expect(el(f).querySelector('.new-place')).toBeNull();
+
+    await type(f, 'bonn');
+    expect(el(f).querySelector('.new-place')).toBeNull();
+
+    await type(f, 'Bonn Old Town'); // past any listed name: now it's a new place
+    expect(el(f).querySelector('.new-place')).not.toBeNull();
   });
 
   it('asks for the name of the place in a country with no city list', async () => {

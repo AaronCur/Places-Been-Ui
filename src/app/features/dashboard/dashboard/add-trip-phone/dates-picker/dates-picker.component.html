@@ -44,11 +44,13 @@
     ><span>S</span>
   </div>
   <div #scroller class="months">
-    <button mat-button type="button" class="earlier" (click)="showEarlier()">
-      <mat-icon>expand_less</mat-icon>
-      Show earlier months
-    </button>
-    @for (month of months(); track month.getTime()) {
+    @if (allRendered()) {
+      <button mat-button type="button" class="earlier" (click)="showEarlier()">
+        <mat-icon>expand_less</mat-icon>
+        Show earlier months
+      </button>
+    }
+    @for (month of visibleMonths(); track month.getTime()) {
       <section [attr.data-start-month]="isStartMonth(month) ? '' : null">
         <header class="month-heading">
           <h3>{{ month | date: 'MMMM' }}</h3>

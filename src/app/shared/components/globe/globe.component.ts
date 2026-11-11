@@ -24,6 +24,8 @@ export interface GlobeMarker {
   lng: number;
   /** Tooltip text, e.g. "Rome, Italy" */
   label: string;
+  /** Drawn bigger and in the primary colour: a place picked but not saved yet */
+  highlight?: boolean;
 }
 
 const DEFAULT_ALTITUDE = 2.2;
@@ -121,7 +123,7 @@ export class GlobeComponent {
           .pointLat('lat')
           .pointLng('lng')
           .pointAltitude(0.02)
-          .pointRadius(0.45)
+          .pointRadius((d) => ((d as GlobeMarker).highlight ? 0.8 : 0.45))
           .pointLabel((d) => escapeHtml((d as GlobeMarker).label))
           .pointOfView({ altitude: DEFAULT_ALTITUDE });
 
@@ -156,13 +158,14 @@ export class GlobeComponent {
       const line = color('--pb-globe-line');
       const marker = color('--pb-marker');
       const ocean = color('--pb-ocean');
+      const highlight = color('--mat-sys-primary');
       globe
         .backgroundColor('rgba(0,0,0,0)')
         .atmosphereColor(ocean)
         .polygonCapColor((d) => (this.isVisited(d) ? visited : land))
         .polygonSideColor(() => line)
         .polygonStrokeColor(() => line)
-        .pointColor(() => marker);
+        .pointColor((d) => ((d as GlobeMarker).highlight ? highlight : marker));
       // The sphere itself is a three.js MeshPhongMaterial; tint it to the ocean colour (no texture image)
       (globe.globeMaterial() as unknown as { color: { set(c: string): void } }).color.set(ocean);
     });

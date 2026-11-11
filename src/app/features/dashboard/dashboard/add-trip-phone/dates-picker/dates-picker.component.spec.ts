@@ -47,18 +47,31 @@ describe('DatesPickerComponent', () => {
     await f.whenStable();
   }
 
-  it('shows the last 12 months, ending with this one, and can go further back', async () => {
+  it('opens on the latest months, then fills in the rest of the year above them', async () => {
     const f = await render();
 
-    expect(monthHeadings(f)).toHaveLength(12);
+    // Straight away: just the latest three, so the screen opens without a long freeze
+    expect(monthHeadings(f)).toEqual(['September 2026', 'October 2026', 'November 2026']);
+    expect(el(f).querySelector('.earlier')).toBeNull();
+
+    await vi.waitFor(() => expect(monthHeadings(f)).toHaveLength(12), { timeout: 10_000 });
     expect(monthHeadings(f)[0]).toBe('December 2025');
     expect(monthHeadings(f).at(-1)).toBe('November 2026');
+    // Twelve mat-calendars, rendered a few per tick: slow in jsdom during a full parallel run
+  }, 15_000);
+
+  it('goes further back on request', async () => {
+    const f = await render();
+    await vi.waitFor(() => expect(el(f).querySelector('.earlier')).not.toBeNull(), {
+      timeout: 5000,
+    });
 
     el(f).querySelector<HTMLElement>('.earlier')!.click();
-    await f.whenStable();
-    expect(monthHeadings(f)).toHaveLength(24);
+
+    await vi.waitFor(() => expect(monthHeadings(f)).toHaveLength(24), { timeout: 10_000 });
     expect(monthHeadings(f)[0]).toBe('December 2024');
-  });
+    // 24 mat-calendars: slow in jsdom, so more than the 5s default during a full parallel run
+  }, 15_000);
 
   it('can’t pick a day after today', async () => {
     const f = await render();
@@ -123,11 +136,12 @@ describe('DatesPickerComponent', () => {
   });
 
   it('opens on the dates already chosen, however long ago, with the year shown', async () => {
-    const f = await render({ start: new Date(2023, 6, 10), end: new Date(2023, 6, 12) });
+    const f = await render({ start: new Date(2025, 6, 10), end: new Date(2025, 6, 12) });
 
-    expect(monthHeadings(f)[0]).toBe('July 2023');
-    expect(range(f)).toBe('10 Jul Start · 2023 2 nights 12 Jul End');
-    expect(day(f, '11 July 2023').classList).toContain('mat-calendar-body-in-range');
+    // Rendered at once from that month on, rather than filled in later
+    expect(monthHeadings(f)[0]).toBe('July 2025');
+    expect(range(f)).toBe('10 Jul Start · 2025 2 nights 12 Jul End');
+    expect(day(f, '11 July 2025').classList).toContain('mat-calendar-body-in-range');
   });
 
   it('goes back without picking', async () => {

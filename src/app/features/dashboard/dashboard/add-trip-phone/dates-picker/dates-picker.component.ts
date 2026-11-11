@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   afterNextRender,
@@ -24,8 +25,12 @@ export interface TripDates {
   end: Date | null;
 }
 
-// Months shown at first, and added by each "Show earlier months"
+// Months offered at first, and added by each "Show earlier months"
 const MONTHS_PER_PAGE = 12;
+// Each month is a whole mat-calendar, and 12 at once cost ~280ms on a fast desktop: too long a freeze on a
+// phone. So the latest few render straight away and the rest fill in above them a few at a time when idle.
+const FIRST_RENDER = 3;
+const RENDER_STEP = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -82,6 +87,14 @@ export class DatesPickerComponent {
     );
   });
 
+  /** How many of the latest months are on screen so far: enough to include dates already chosen */
+  private readonly rendered = linkedSignal(() => {
+    const start = this.value()?.start;
+    return Math.max(FIRST_RENDER, start ? monthsBetween(start, this.today) + 1 : 0);
+  });
+  protected readonly visibleMonths = computed(() => this.months().slice(-this.rendered()));
+  protected readonly allRendered = computed(() => this.rendered() >= this.months().length);
+
   protected readonly nights = computed(() => {
     const start = this.start();
     const end = this.end();
@@ -97,13 +110,21 @@ export class DatesPickerComponent {
   );
 
   private readonly scroller = viewChild.required<ElementRef<HTMLElement>>('scroller');
+  private destroyed = false;
+  private cancelIdle = () => {};
 
   constructor() {
-    // Open on the latest months, like a chat: the past is above
+    inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
+      this.cancelIdle();
+    });
+
+    // Open on the latest months, like a chat: the past is above. Then fill in the older ones.
     afterNextRender(() => {
       const el = this.scroller().nativeElement;
       const target = el.querySelector<HTMLElement>('[data-start-month]');
       el.scrollTop = target ? target.offsetTop - el.offsetTop - 16 : el.scrollHeight;
+      this.fillIn();
     });
   }
 
@@ -125,13 +146,44 @@ export class DatesPickerComponent {
   }
 
   protected showEarlier(): void {
+    this.extraPages.update((n) => n + 1);
+    this.fillIn();
+  }
+
+  // A few more months at a time, each when the browser is idle, until all of them are on screen
+  private fillIn(): void {
+    if (this.destroyed || this.allRendered()) return;
+    this.whenIdle(() =>
+      this.keepScrollPosition(
+        () => this.rendered.update((n) => n + RENDER_STEP),
+        () => this.fillIn(),
+      ),
+    );
+  }
+
+  // Months added above push the ones in view down; scroll by the same amount so nothing seems to move
+  private keepScrollPosition(change: () => void, then: () => void): void {
     const el = this.scroller().nativeElement;
     const fromBottom = el.scrollHeight - el.scrollTop;
-    this.extraPages.update((n) => n + 1);
-    // Keep the months in view where they were, rather than jumping as the new ones push them down
-    afterNextRender(() => (el.scrollTop = el.scrollHeight - fromBottom), {
-      injector: this.injector,
-    });
+    change();
+    afterNextRender(
+      () => {
+        el.scrollTop = el.scrollHeight - fromBottom;
+        then();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  private whenIdle(task: () => void): void {
+    if (typeof requestIdleCallback === 'function') {
+      const handle = requestIdleCallback(task, { timeout: 200 });
+      this.cancelIdle = () => cancelIdleCallback(handle);
+    } else {
+      // Safari has no requestIdleCallback
+      const handle = setTimeout(task, 16);
+      this.cancelIdle = () => clearTimeout(handle);
+    }
   }
 
   protected done(): void {
