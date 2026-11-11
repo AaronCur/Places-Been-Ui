@@ -1,4 +1,4 @@
-import { Injectable, Provider } from '@angular/core';
+import { Injectable, InjectionToken, Provider } from '@angular/core';
 import {
   DateAdapter,
   MAT_DATE_FORMATS,
@@ -42,6 +42,9 @@ export function provideDayFirstDates(): Provider[] {
     { provide: MAT_DATE_LOCALE, useValue: 'en-GB' },
   ];
 }
+
+/** The current date and time; a token so tests can fix "today" (a calendar's future days, its months) */
+export const NOW = new InjectionToken<() => Date>('NOW', { factory: () => () => new Date() });
 
 /**
  * The API's LocalDate format ("2026-10-12"), from the date's local day. Not toISOString(): that converts to

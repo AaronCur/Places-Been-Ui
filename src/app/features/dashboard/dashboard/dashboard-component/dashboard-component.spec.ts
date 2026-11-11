@@ -100,7 +100,8 @@ describe('DashboardComponent', () => {
 
   const clickAdd = async (fixture: Awaited<ReturnType<typeof render>>) => {
     (fixture.nativeElement.querySelector('button.add, button.add-round') as HTMLElement).click();
-    await vi.waitFor(() => expect(dialog.open).toHaveBeenCalled()); // after the lazy import
+    // After the lazy import, which can be slow while the rest of the suite runs in parallel
+    await vi.waitFor(() => expect(dialog.open).toHaveBeenCalled(), { timeout: 5000 });
     await fixture.whenStable();
   };
 

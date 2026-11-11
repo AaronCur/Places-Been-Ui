@@ -17,3 +17,18 @@
 .pb-light-backdrop {
   background: rgb(0 0 0 / 0.12);
 }
+
+/* Phone Add trip calendar: one mat-calendar per month under the screen's own month headings and weekday
+   row, so each calendar's weekday header and in-grid month label ("OCT") are left out */
+.pb-range-calendar .mat-calendar-table-header {
+  display: none;
+}
+
+/* Hidden, not removed: in a month that doesn't start on a Monday it fills the blank days before the 1st */
+.pb-range-calendar .mat-calendar-body-label {
+  visibility: hidden;
+}
+
+.pb-range-calendar .mat-calendar-content {
+  padding: 0;
+}

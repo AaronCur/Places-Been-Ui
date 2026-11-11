@@ -1,0 +1,68 @@
+<div class="top-bar">
+  <button mat-icon-button type="button" class="round" aria-label="Back" (click)="closed.emit()">
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <button mat-flat-button type="button" class="pill" [disabled]="!start()" (click)="done()">
+    Done
+  </button>
+</div>
+
+<h2>When was it?</h2>
+
+<!-- The range as big numbers, like the stats -->
+<div class="range" aria-live="polite">
+  <div class="end-point">
+    <span class="value" [class.unset]="!start()">{{
+      start() ? (start() | date: 'd MMM') : '–'
+    }}</span>
+    <span class="label"
+      >Start{{
+        start() && start()!.getFullYear() !== today.getFullYear()
+          ? ' · ' + start()!.getFullYear()
+          : ''
+      }}</span
+    >
+  </div>
+  <div class="length" aria-hidden="true">
+    <mat-icon>arrow_forward</mat-icon>
+    <span>{{
+      nights() ? (nights() === 1 ? '1 night' : nights() + ' nights') : start() ? 'day trip' : ''
+    }}</span>
+  </div>
+  <div class="end-point">
+    <span class="value" [class.unset]="!end()">
+      {{ end() ? (end() | date: 'd MMM') : start() ? 'Same day' : '–' }}
+    </span>
+    <span class="label">End</span>
+  </div>
+</div>
+<p class="hint">{{ hint() }}</p>
+
+<div class="calendar-box">
+  <div class="weekdays" aria-hidden="true">
+    <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span
+    ><span>S</span>
+  </div>
+  <div #scroller class="months">
+    <button mat-button type="button" class="earlier" (click)="showEarlier()">
+      <mat-icon>expand_less</mat-icon>
+      Show earlier months
+    </button>
+    @for (month of months(); track month.getTime()) {
+      <section [attr.data-start-month]="isStartMonth(month) ? '' : null">
+        <header class="month-heading">
+          <h3>{{ month | date: 'MMMM' }}</h3>
+          <span>{{ month | date: 'y' }}</span>
+        </header>
+        <mat-calendar
+          class="pb-range-calendar"
+          [headerComponent]="headerComponent"
+          [startAt]="month"
+          [selected]="selected()"
+          [maxDate]="today"
+          (selectedChange)="pick($event)"
+        />
+      </section>
+    }
+  </div>
+</div>

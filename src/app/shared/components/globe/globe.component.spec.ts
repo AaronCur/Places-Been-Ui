@@ -34,7 +34,8 @@ describe('GlobeComponent', () => {
       { timeout: 10_000 },
     );
     expect(fixture.nativeElement.querySelector('[aria-label="Zoom in"]')).toBeNull();
-  });
+    // globe.gl is a large import; under a full parallel test run it can take longer than the 5s default
+  }, 15_000);
 });
 
 describe('slideStep', () => {
