@@ -2,11 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatDialogRef } from '@angular/material/dialog';
 import { Observable, Subject, of, throwError } from 'rxjs';
-import {
-  AddTripDialogComponent,
-  filterByName,
-  serverFieldErrors,
-} from './add-trip-dialog-component';
+import { AddTripDialogComponent } from './add-trip-dialog-component';
 import { CityOption, CountryOption, PlacesService } from '../../../../core/services/places.service';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
 import { TripService } from '../../../../core/services/trip.service';
@@ -385,79 +381,5 @@ describe('AddTripDialogComponent', () => {
 
     expect(text(fixture)).not.toContain('Couldn’t load cities');
     expect(retry()).toBeNull();
-  });
-});
-
-describe('serverFieldErrors', () => {
-  it('maps each field in a validation message to its control', () => {
-    expect(
-      serverFieldErrors(
-        'startDate: must be a date in the past or in the present, cityName: must not be blank',
-      ),
-    ).toEqual(
-      new Map([
-        ['start', 'The trip can’t start in the future'],
-        ['city', 'Check the city name'],
-      ]),
-    );
-  });
-
-  it('keeps a comma inside a message from splitting it', () => {
-    expect([...serverFieldErrors('notes: too long, really, endDate: bad').keys()]).toEqual([
-      'notes',
-      'end',
-    ]);
-  });
-
-  it('recognises an unknown country', () => {
-    expect([...serverFieldErrors('Unknown country code: XX').keys()]).toEqual(['country']);
-  });
-
-  it('returns nothing for messages about no field', () => {
-    expect(serverFieldErrors('Malformed JSON request body or invalid data types.').size).toBe(0);
-  });
-});
-
-describe('filterByName', () => {
-  const countries = [
-    { name: 'South Korea' },
-    { name: 'Korea North' },
-    { name: 'United Kingdom' },
-    { name: 'Guinea-Bissau' },
-    { name: 'Germany' },
-  ];
-  const names = (query: string, limit?: number) =>
-    filterByName(countries, query, limit).map((c) => c.name);
-
-  it('returns everything for an empty query', () => {
-    expect(names('  ')).toHaveLength(5);
-  });
-
-  it('matches the start of any word, names that start with the query first', () => {
-    expect(names('korea')).toEqual(['Korea North', 'South Korea']);
-    expect(names('kingdom')).toEqual(['United Kingdom']);
-    expect(names('bissau')).toEqual(['Guinea-Bissau']);
-  });
-
-  it('ignores case and does not match the middle of a word', () => {
-    expect(names('GER')).toEqual(['Germany']);
-    expect(names('erman')).toEqual([]);
-  });
-
-  it('keeps the input order within each group, so cities stay biggest first', () => {
-    // Not alphabetical, as the population-sorted city list wouldn't be
-    const cities = ['Sierra Grande', 'Granada', 'Alto Gredos', 'Grazalema', 'Gor'].map((name) => ({
-      name,
-    }));
-    expect(filterByName(cities, 'gr').map((c) => c.name)).toEqual([
-      'Granada',
-      'Grazalema',
-      'Sierra Grande',
-      'Alto Gredos',
-    ]);
-  });
-
-  it('caps long lists', () => {
-    expect(names('', 2)).toHaveLength(2);
   });
 });

@@ -1,0 +1,134 @@
+<!-- Material 3's search bar: a filled pill with the back arrow and a clear button inside it -->
+<div class="search-bar">
+  <button
+    mat-icon-button
+    type="button"
+    [attr.aria-label]="step() === 'cities' ? 'Back to countries' : 'Back'"
+    (click)="back()"
+  >
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <input
+    #search
+    type="search"
+    autocomplete="off"
+    enterkeyhint="search"
+    [attr.aria-label]="searchLabel()"
+    [placeholder]="searchLabel()"
+    [value]="query()"
+    (input)="setQuery($event)"
+  />
+  @if (query()) {
+    <button mat-icon-button type="button" aria-label="Clear search" (click)="clear()">
+      <mat-icon>close</mat-icon>
+    </button>
+  } @else {
+    <mat-icon class="search-icon" aria-hidden="true">search</mat-icon>
+  }
+</div>
+
+<div class="results">
+  @if (step() === 'countries') {
+    @if (countriesLoading()) {
+      <p class="status">Loading countries…</p>
+    } @else if (countriesFailed()) {
+      <p class="status error" role="alert">
+        Couldn’t load the country list. Go back and try again.
+      </p>
+    } @else {
+      @if (!query() && visitedOptions().length) {
+        <section aria-labelledby="been-before">
+          <header class="group-heading">
+            <h3 id="been-before">Been before</h3>
+            <span
+              >{{ visitedOptions().length }}
+              {{ visitedOptions().length === 1 ? 'country' : 'countries' }}</span
+            >
+          </header>
+          <mat-action-list class="group">
+            @for (option of visitedOptions(); track option.country.isoCode) {
+              <button mat-list-item type="button" (click)="pickCountry(option.country)">
+                <app-flag matListItemAvatar [code]="option.country.isoCode" [size]="40" />
+                <span matListItemTitle class="visited-name">{{ option.country.name }}</span>
+                <span matListItemMeta class="meta">{{ option.summary }}</span>
+              </button>
+            }
+          </mat-action-list>
+        </section>
+      }
+
+      <section aria-labelledby="all-countries">
+        <header class="group-heading">
+          <h3 id="all-countries">{{ query() ? 'Results' : 'All countries' }}</h3>
+        </header>
+        @if (countryOptions().length) {
+          <mat-action-list class="group">
+            @for (country of countryOptions(); track country.isoCode) {
+              <button mat-list-item type="button" (click)="pickCountry(country)">
+                <app-flag matListItemAvatar [code]="country.isoCode" [size]="40" />
+                <span matListItemTitle>{{ country.name }}</span>
+              </button>
+            }
+          </mat-action-list>
+        } @else {
+          <p class="status">No country matches “{{ query() }}”.</p>
+        }
+      </section>
+    }
+  } @else if (country(); as country) {
+    <header class="group-heading country-heading">
+      <app-flag [code]="country.isoCode" [size]="40" />
+      <h3>{{ country.name }}</h3>
+      @if (citiesState().status === 'ready' && !noCityList()) {
+        <span>{{ cityCount() }}</span>
+      }
+    </header>
+
+    @switch (citiesState().status) {
+      @case ('loading') {
+        <p class="status">Loading cities…</p>
+      }
+      @case ('error') {
+        <div class="status error" role="alert">
+          <span>Couldn’t load the cities.</span>
+          <button mat-button type="button" (click)="retryCities$.next()">Try again</button>
+        </div>
+      }
+    }
+
+    @if (cityOptions().length) {
+      <mat-action-list class="group">
+        @for (option of cityOptions(); track option.city.id) {
+          <button mat-list-item type="button" (click)="pickCity(option.city)">
+            <span matListItemAvatar class="pin" aria-hidden="true"
+              ><mat-icon>location_on</mat-icon></span
+            >
+            <span matListItemTitle class="city-name">{{ option.city.name }}</span>
+            @if (option.city.stateName) {
+              <span matListItemLine>{{ option.city.stateName }}</span>
+            }
+            @if (option.trips) {
+              <span matListItemMeta class="meta">{{
+                option.trips === 1 ? '1 trip' : option.trips + ' trips'
+              }}</span>
+            }
+          </button>
+        }
+      </mat-action-list>
+    } @else if (noCityList() && !query()) {
+      <p class="status">No city list for {{ country.name }}. Type the name of the place.</p>
+    }
+
+    @if (newPlace(); as place) {
+      <button type="button" class="new-place" (click)="addNewPlace(place)">
+        <span class="new-place-icon" aria-hidden="true"><mat-icon>add_location_alt</mat-icon></span>
+        <span class="new-place-text">
+          <span class="new-place-title">Add “{{ place.cityName }}”</span>
+          <span class="new-place-hint"
+            >Not in the list? It’s pinned at the centre of {{ country.name }}</span
+          >
+        </span>
+      </button>
+    }
+  }
+</div>

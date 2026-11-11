@@ -1,0 +1,179 @@
+/* Fills its screen: the search bar on top, the results scrolling under it */
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.search-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 56px;
+  margin: 12px 16px 8px;
+  padding: 0 4px;
+  border-radius: 28px;
+  background: var(--mat-sys-surface-container-high);
+}
+
+.search-bar input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 48px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  color: var(--mat-sys-on-surface);
+  /* The browser's own clear button; ours is the round one */
+  appearance: none;
+}
+
+.search-bar input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-bar input::placeholder {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.search-icon {
+  width: 48px;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.results {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px 24px;
+  scrollbar-width: none;
+}
+
+.results::-webkit-scrollbar {
+  display: none;
+}
+
+/* Section headings like the Timeline's years: 20px, with a count on the right */
+.group-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 4px 10px;
+}
+
+.group-heading h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.group-heading span {
+  font-size: 14px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.country-heading {
+  align-items: center;
+}
+
+.country-heading h3 {
+  flex: 1 1 auto;
+}
+
+/* Rows grouped in a rounded box, like the Timeline's years */
+.group {
+  padding: 6px 0;
+  border-radius: 20px;
+  background: var(--mat-sys-surface-container);
+  --mat-list-list-item-leading-avatar-size: 40px;
+}
+
+.visited-name,
+.city-name {
+  font-weight: 500;
+}
+
+.meta {
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mat-sys-surface);
+  color: var(--pb-marker);
+}
+
+.status {
+  margin: 0;
+  padding: 16px 4px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.status.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--mat-sys-error);
+}
+
+/* "Add 'X'": its own dashed card under the results, so it reads as an option, not one more city */
+.new-place {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 68px;
+  margin-top: 12px;
+  padding: 10px 16px 10px 14px;
+  border: 1px dashed var(--mat-sys-primary);
+  border-radius: 20px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--mat-sys-on-surface);
+  cursor: pointer;
+}
+
+.new-place:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+
+.new-place-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+}
+
+.new-place-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.new-place-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.new-place-hint {
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant);
+}
