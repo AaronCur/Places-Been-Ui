@@ -1,5 +1,4 @@
-# Weekly update PRs, grouped to keep the noise down.
-# Angular packages must move together (core, material, cli...), so they share one group.
+# Weekly update PRs: one for npm, one for GitHub Actions.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -17,12 +16,11 @@ updates:
       # Each Angular version supports a fixed TypeScript range; `ng update` bumps it when Angular does
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    # Everything the ignore rules allow, majors included, in one PR. If CI goes red, the failing package is
+    # usually the major bump; drop it with `@dependabot ignore <package> major version` and the PR rebuilds.
     groups:
-      angular:
-        patterns: ["@angular/*", "@angular-devkit/*"]
-        update-types: [minor, patch]
-      npm-minor-patch:
-        update-types: [minor, patch]
+      npm:
+        patterns: ["*"]
 
   - package-ecosystem: github-actions
     directory: /
