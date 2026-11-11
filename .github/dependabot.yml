@@ -1,12 +1,22 @@
 # Weekly update PRs, grouped to keep the noise down.
 # Angular packages must move together (core, material, cli...), so they share one group.
-# Major versions (e.g. Angular 22) still arrive as their own PRs, since they need `ng update` migrations.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    # Angular majors are done by hand with `ng update`: it moves every Angular package and TypeScript together
+    # and runs the code migrations. A Dependabot PR bumping one package to a new major can never install,
+    # because the other packages' peer dependencies still pin the old major.
+    ignore:
+      - dependency-name: "@angular/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@angular-devkit/*"
+        update-types: ["version-update:semver-major"]
+      # Each Angular version supports a fixed TypeScript range; `ng update` bumps it when Angular does
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       angular:
         patterns: ["@angular/*", "@angular-devkit/*"]
