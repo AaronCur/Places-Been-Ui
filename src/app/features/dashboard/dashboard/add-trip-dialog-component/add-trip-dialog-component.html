@@ -1,10 +1,10 @@
 <h2 mat-dialog-title>
   <mat-icon aria-hidden="true">add_location_alt</mat-icon>
-  Add city
+  Add trip
 </h2>
 
 <mat-dialog-content>
-  <form id="add-city" [formGroup]="form" (ngSubmit)="save()">
+  <form id="add-trip" [formGroup]="form" (ngSubmit)="save()">
     <mat-form-field appearance="outline">
       <mat-label>Country</mat-label>
       @if (selectedCountry(); as country) {
@@ -39,10 +39,20 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="outline">
+    <!-- dynamic: these always show a hint or an error, and on a phone it can wrap; a fixed subscript
+         would let the second line run into the next field -->
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
       <mat-label>City</mat-label>
-      <mat-icon matIconPrefix aria-hidden="true">search</mat-icon>
-      <input matInput formControlName="city" [matAutocomplete]="cityAuto" />
+      <mat-icon matIconPrefix aria-hidden="true">{{
+        freeTextCity() ? 'edit_location_alt' : 'search'
+      }}</mat-icon>
+      <!-- One input either way; with no city list the autocomplete is switched off and the name is typed -->
+      <input
+        matInput
+        formControlName="city"
+        [matAutocomplete]="cityAuto"
+        [matAutocompleteDisabled]="freeTextCity()"
+      />
       @if (citiesState().status === 'error') {
         <button
           matIconSuffix
@@ -82,13 +92,62 @@
           <mat-hint class="error-hint" role="alert">Couldn’t load cities.</mat-hint>
         }
       }
-      @if (noCities()) {
-        <mat-hint>No cities listed for this country</mat-hint>
+      @if (freeTextCity()) {
+        <!-- The pin goes at the country’s centre -->
+        <mat-hint>No city list here: type the place name</mat-hint>
       }
       @if (form.controls.city.hasError('server')) {
         <mat-error>{{ form.controls.city.getError('server') }}</mat-error>
       } @else if (form.controls.city.hasError('notPicked')) {
         <mat-error>Pick a city from the list</mat-error>
+      } @else if (form.controls.city.hasError('required')) {
+        <mat-error>Type the name of the place</mat-error>
+      } @else if (form.controls.city.hasError('maxlength')) {
+        <mat-error>That name is too long</mat-error>
+      }
+    </mat-form-field>
+
+    @let start = form.controls.dates.controls.start;
+    @let end = form.controls.dates.controls.end;
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" formGroupName="dates">
+      <mat-label>Dates</mat-label>
+      <mat-date-range-input [rangePicker]="picker">
+        <input matStartDate formControlName="start" placeholder="Start" />
+        <input matEndDate formControlName="end" placeholder="End" />
+      </mat-date-range-input>
+      <mat-datepicker-toggle matIconSuffix [for]="picker" />
+      <mat-date-range-picker #picker />
+      <mat-hint>DD/MM/YYYY · no end date for a day trip</mat-hint>
+      <!-- One message at a time, the most useful first -->
+      @if (start.hasError('matDatepickerParse') || end.hasError('matDatepickerParse')) {
+        <mat-error>Write dates as DD/MM/YYYY</mat-error>
+      } @else if (start.hasError('server')) {
+        <mat-error>{{ start.getError('server') }}</mat-error>
+      } @else if (end.hasError('server')) {
+        <mat-error>{{ end.getError('server') }}</mat-error>
+      } @else if (start.hasError('required')) {
+        <mat-error>When did the trip start?</mat-error>
+      } @else if (start.hasError('future')) {
+        <mat-error>The trip can’t start in the future</mat-error>
+      } @else if (end.hasError('matEndDateInvalid') || start.hasError('matStartDateInvalid')) {
+        <mat-error>The end can’t be before the start</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Notes</mat-label>
+      <textarea matInput formControlName="notes" rows="3"></textarea>
+      <mat-hint align="end">{{ form.controls.notes.value.length }} / {{ maxNotes }}</mat-hint>
+      @if (form.controls.notes.hasError('server')) {
+        <mat-error>{{ form.controls.notes.getError('server') }}</mat-error>
+      } @else if (form.controls.notes.hasError('maxlength')) {
+        <!-- Errors replace hints, so the count moves in here -->
+        <mat-error
+          >Notes can be up to {{ maxNotes }} characters ({{
+            form.controls.notes.value.length
+          }}
+          now)</mat-error
+        >
       }
     </mat-form-field>
   </form>
@@ -110,10 +169,10 @@
 </mat-dialog-content>
 
 @if (saving()) {
-  <mat-progress-bar mode="indeterminate" aria-label="Saving city" />
+  <mat-progress-bar mode="indeterminate" aria-label="Saving trip" />
 }
 
 <mat-dialog-actions align="end">
   <button mat-button type="button" mat-dialog-close [disabled]="saving()">Cancel</button>
-  <button mat-flat-button type="submit" form="add-city" [disabled]="saving()">Save city</button>
+  <button mat-flat-button type="submit" form="add-trip" [disabled]="saving()">Save trip</button>
 </mat-dialog-actions>

@@ -2,9 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { StatsCardsComponent } from './stats-cards-component';
 
 describe('StatsCardsComponent', () => {
-  async function render({ landShare = 0.078 as number | null, visited = 6 } = {}) {
+  async function render({ landShare = 0.078 as number | null, visited = 6, trips = 12 } = {}) {
     const fixture = TestBed.createComponent(StatsCardsComponent);
     fixture.componentRef.setInput('stats', { totalCountries: 7, totalCities: 1234 });
+    fixture.componentRef.setInput('trips', trips);
     fixture.componentRef.setInput('countriesVisited', visited);
     fixture.componentRef.setInput('countriesTotal', 195);
     fixture.componentRef.setInput('landShare', landShare);
@@ -14,7 +15,7 @@ describe('StatsCardsComponent', () => {
 
   const text = (el: Element | null) => el?.textContent?.replace(/\s+/g, ' ').trim();
 
-  it('shows the country and city counts', async () => {
+  it('shows the country, city and trip counts', async () => {
     const el = await render();
     const cards = [...el.querySelectorAll('.card:not(.share)')].map((card) => [
       text(card.querySelector('.value')),
@@ -24,7 +25,14 @@ describe('StatsCardsComponent', () => {
     expect(cards).toEqual([
       ['7', 'Countries'],
       ['1,234', 'Cities'],
+      ['12', 'Trips'],
     ]);
+  });
+
+  it('says "Trip" for a single trip', async () => {
+    const el = await render({ trips: 1 });
+
+    expect(text(el.querySelectorAll('.count')[2].querySelector('.label'))).toBe('Trip');
   });
 
   it('shows the share of the 195 countries visited, with a bar and the raw count', async () => {

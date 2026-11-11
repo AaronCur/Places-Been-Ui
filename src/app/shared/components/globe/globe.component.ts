@@ -24,6 +24,8 @@ export interface GlobeMarker {
   lng: number;
   /** Tooltip text, e.g. "Rome, Italy" */
   label: string;
+  /** Drawn bigger and in the primary colour: a place picked but not saved yet */
+  highlight?: boolean;
 }
 
 const DEFAULT_ALTITUDE = 2.2;
@@ -42,6 +44,19 @@ const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 /** Position of a slide from `from` to `target` once `t` (0–1) of its duration has passed */
 export const slideStep = (from: number, target: number, t: number) =>
   from + (target - from) * easeOutCubic(t);
+
+/**
+ * Camera altitude (in globe radii above the surface) at which the globe spans `fill` (0–1) of the view's
+ * narrower side. `fovDegrees` is the camera's vertical field of view; the horizontal one follows from the
+ * aspect ratio, so a tall phone view is limited by its width.
+ */
+export function altitudeToFit(width: number, height: number, fill: number, fovDegrees: number) {
+  const tanHalfV = Math.tan((fovDegrees * Math.PI) / 360);
+  const tanHalfNarrow = Math.min(tanHalfV, tanHalfV * (width / height));
+  // The globe's edge is where the line of sight grazes it: sin(angle) = radius / distance from the centre
+  const halfAngle = Math.atan(fill * tanHalfNarrow);
+  return 1 / Math.sin(halfAngle) - 1;
+}
 
 // The two three.js PerspectiveCamera methods used here (three's own types aren't installed)
 interface ViewOffsetCamera {
@@ -73,6 +88,11 @@ export class GlobeComponent {
   readonly focus = input<MapFocus | null>(null);
   /** Pixels of the right edge covered by something (the docked add dialog); the globe centres in the rest */
   readonly insetRight = input(0);
+  /**
+   * Start (and reset) zoomed so the globe spans this share (0–1) of the view's narrower side, like the
+   * phone layout's near-full-width globe. Unset: a fixed altitude that suits a wide desktop view.
+   */
+  readonly fill = input<number | null>(null);
   readonly countryClick = output<string>();
 
   protected readonly status = signal<'loading' | 'ready' | 'error'>('loading');
@@ -103,7 +123,7 @@ export class GlobeComponent {
           .pointLat('lat')
           .pointLng('lng')
           .pointAltitude(0.02)
-          .pointRadius(0.45)
+          .pointRadius((d) => ((d as GlobeMarker).highlight ? 0.8 : 0.45))
           .pointLabel((d) => escapeHtml((d as GlobeMarker).label))
           .pointOfView({ altitude: DEFAULT_ALTITUDE });
 
@@ -138,13 +158,14 @@ export class GlobeComponent {
       const line = color('--pb-globe-line');
       const marker = color('--pb-marker');
       const ocean = color('--pb-ocean');
+      const highlight = color('--mat-sys-primary');
       globe
         .backgroundColor('rgba(0,0,0,0)')
         .atmosphereColor(ocean)
         .polygonCapColor((d) => (this.isVisited(d) ? visited : land))
         .polygonSideColor(() => line)
         .polygonStrokeColor(() => line)
-        .pointColor(() => marker);
+        .pointColor((d) => ((d as GlobeMarker).highlight ? highlight : marker));
       // The sphere itself is a three.js MeshPhongMaterial; tint it to the ocean colour (no texture image)
       (globe.globeMaterial() as unknown as { color: { set(c: string): void } }).color.set(ocean);
     });
@@ -157,6 +178,19 @@ export class GlobeComponent {
       const markers = this.markers();
       if (!globe) return;
       globe.polygonsData([...shapes]).pointsData(markers);
+    });
+
+    // With `fill`, the starting zoom depends on the view's size, known only once it's laid out. Done once:
+    // after that the zoom is the user's (or a focus request's).
+    let fitted = false;
+    effect(() => {
+      const globe = this.globe();
+      const { width } = this.size();
+      if (!globe || !width || fitted || !this.fill()) return;
+      fitted = true;
+      untracked(() => {
+        if (!this.focus()) globe.pointOfView({ altitude: this.homeAltitude(globe) });
+      });
     });
 
     // Fly to each focus request (also one made before the globe finished loading)
@@ -218,7 +252,16 @@ export class GlobeComponent {
   }
 
   protected resetView(): void {
-    this.globe()?.pointOfView({ lat: 20, lng: 0, altitude: DEFAULT_ALTITUDE }, 600);
+    const globe = this.globe();
+    if (globe) globe.pointOfView({ lat: 20, lng: 0, altitude: this.homeAltitude(globe) }, 600);
+  }
+
+  private homeAltitude(globe: GlobeInstance): number {
+    const fill = this.fill();
+    const { width, height } = this.size();
+    if (!fill || !width || !height) return DEFAULT_ALTITUDE;
+    const fov = (globe.camera() as unknown as { fov: number }).fov;
+    return altitudeToFit(width, height, fill, fov);
   }
 
   private isVisited(shape: object): boolean {

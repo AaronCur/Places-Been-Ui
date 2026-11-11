@@ -1,0 +1,150 @@
+@switch (screen()) {
+  @case ('summary') {
+    <!-- The dashboard's globe shows through above the panel -->
+    <div class="top-bar summary-bar">
+      <button
+        mat-icon-button
+        type="button"
+        class="round"
+        aria-label="Close"
+        [disabled]="saving()"
+        (click)="close()"
+      >
+        <mat-icon>close</mat-icon>
+      </button>
+      <button mat-flat-button type="button" class="pill" [disabled]="!ready()" (click)="save()">
+        {{ saving() ? 'Saving…' : 'Save trip' }}
+      </button>
+    </div>
+
+    <section class="panel" aria-labelledby="add-trip-title">
+      @if (saving()) {
+        <mat-progress-bar mode="indeterminate" aria-label="Saving trip" />
+      }
+
+      <div class="headline">
+        @if (place(); as place) {
+          <div class="country">
+            <app-flag [code]="place.countryCode" [size]="20" />
+            <span>{{ place.countryName }}</span>
+          </div>
+        }
+        <h2 id="add-trip-title">{{ place()?.cityName ?? 'Where did you go?' }}</h2>
+        <p>{{ subline() }}</p>
+      </div>
+
+      @if (formError(); as error) {
+        <p class="form-error" role="alert">{{ error }}</p>
+      }
+
+      <div class="rows">
+        <button type="button" class="row" [class.error]="errors().where" (click)="open('where')">
+          <span class="row-icon" [class.done]="place()" aria-hidden="true">
+            <mat-icon>{{ errors().where ? 'error' : place() ? 'check' : 'location_on' }}</mat-icon>
+          </span>
+          <span class="row-text">
+            <span class="row-label">Where</span>
+            @if (place(); as place) {
+              <span class="row-value">{{ place.cityName }}, {{ place.countryName }}</span>
+              @if (place.approximate) {
+                <span class="row-note">Pinned at the centre of {{ place.countryName }}</span>
+              }
+            } @else {
+              <span class="row-value unset">Pick a place</span>
+            }
+            @if (errors().where; as error) {
+              <span class="row-error" role="alert">{{ error }}</span>
+            }
+          </span>
+          <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+        </button>
+
+        <button type="button" class="row" [class.error]="errors().when" (click)="open('when')">
+          <span class="row-icon" [class.done]="dates()" aria-hidden="true">
+            <mat-icon>{{
+              errors().when ? 'error' : dates() ? 'check' : 'calendar_month'
+            }}</mat-icon>
+          </span>
+          <span class="row-text">
+            <span class="row-label">When</span>
+            <span class="row-value" [class.unset]="!dates()">{{ datesText() ?? 'Add dates' }}</span>
+            @if (errors().when; as error) {
+              <span class="row-error" role="alert">{{ error }}</span>
+            }
+          </span>
+          <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+        </button>
+
+        <button type="button" class="row" [class.error]="errors().notes" (click)="open('notes')">
+          <span class="row-icon" [class.done]="notes().trim()" aria-hidden="true">
+            <mat-icon>{{
+              errors().notes ? 'error' : notes().trim() ? 'check' : 'edit_note'
+            }}</mat-icon>
+          </span>
+          <span class="row-text">
+            <span class="row-label">Notes · optional</span>
+            <span class="row-value" [class.unset]="!notes().trim()">{{
+              notes().trim() || 'Add a note'
+            }}</span>
+            @if (errors().notes; as error) {
+              <span class="row-error" role="alert">{{ error }}</span>
+            }
+          </span>
+          <mat-icon class="chevron" aria-hidden="true">chevron_right</mat-icon>
+        </button>
+      </div>
+
+      <p class="credit">
+        Places from the
+        <a
+          href="https://github.com/dr5hn/countries-states-cities-database"
+          target="_blank"
+          rel="noopener"
+          >Countries States Cities Database</a
+        >
+        (ODbL)
+      </p>
+    </section>
+  }
+
+  @case ('where') {
+    <app-place-picker
+      class="screen"
+      [visited]="data.visited"
+      [(step)]="pickerStep"
+      (picked)="onPlace($event)"
+      (closed)="back()"
+    />
+  }
+
+  @case ('when') {
+    <app-dates-picker
+      class="screen"
+      [value]="dates()"
+      (picked)="onDates($event)"
+      (closed)="back()"
+    />
+  }
+
+  @case ('notes') {
+    <div class="screen notes-screen">
+      <div class="top-bar">
+        <button mat-icon-button type="button" class="round" aria-label="Back" (click)="back()">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <button mat-flat-button type="button" class="pill" (click)="back()">Done</button>
+      </div>
+      <h2>Anything to remember?</h2>
+      <p class="notes-hint">Where you stayed, what you ate, who you went with.</p>
+      <textarea
+        #notesBox
+        aria-label="Notes"
+        placeholder="Start typing…"
+        [maxLength]="maxNotes"
+        [value]="notes()"
+        (input)="setNotes($event)"
+      ></textarea>
+      <span class="count">{{ notes().length }} / {{ maxNotes }}</span>
+    </div>
+  }
+}

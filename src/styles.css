@@ -1,19 +1,33 @@
 /* Global styles. Component styles live next to their components; the theme is in material-theme.scss. */
 
-/* Dialogs go full screen on a phone (design: Add trip is a full-screen dialog there) */
-@media (max-width: 599px) {
-  .pb-responsive-dialog {
-    width: 100vw !important;
-    height: 100dvh;
-    max-height: 100dvh !important;
-  }
-
-  .pb-responsive-dialog .mat-mdc-dialog-surface {
-    border-radius: 0;
-  }
-}
-
 /* The docked desktop dialog keeps the globe visible behind it */
 .pb-light-backdrop {
   background: rgb(0 0 0 / 0.12);
+}
+
+/* Phone Add trip calendar: one mat-calendar per month under the screen's own month headings and weekday
+   row, so each calendar's weekday header and in-grid month label ("OCT") are left out */
+.pb-range-calendar .mat-calendar-table-header {
+  display: none;
+}
+
+/* Hidden, not removed: in a month that doesn't start on a Monday it fills the blank days before the 1st */
+.pb-range-calendar .mat-calendar-body-label {
+  visibility: hidden;
+}
+
+.pb-range-calendar .mat-calendar-content {
+  padding: 0;
+}
+
+/* Phone Add trip: a full-screen dialog whose summary is see-through above its panel, so the dashboard's
+   globe shows (and flies to the picked place) behind it */
+.pb-phone-add-trip .mat-mdc-dialog-surface {
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.pb-clear-backdrop {
+  background: transparent;
 }

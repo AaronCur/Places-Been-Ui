@@ -21,6 +21,7 @@ class FakeGlobe {
   readonly markers = input.required<GlobeMarker[]>();
   readonly focus = input<MapFocus | null>(null);
   readonly insetRight = input(0);
+  readonly fill = input<number | null>(null);
   readonly countryClick = output<string>();
 }
 
@@ -98,8 +99,9 @@ describe('DashboardComponent', () => {
   });
 
   const clickAdd = async (fixture: Awaited<ReturnType<typeof render>>) => {
-    (fixture.nativeElement.querySelector('button.add') as HTMLElement).click();
-    await vi.waitFor(() => expect(dialog.open).toHaveBeenCalled()); // after the lazy import
+    (fixture.nativeElement.querySelector('button.add, button.add-round') as HTMLElement).click();
+    // After the lazy import, which can be slow while the rest of the suite runs in parallel
+    await vi.waitFor(() => expect(dialog.open).toHaveBeenCalled(), { timeout: 5000 });
     await fixture.whenStable();
   };
 
@@ -117,14 +119,115 @@ describe('DashboardComponent', () => {
     expect(globe(fixture).insetRight()).toBe(0);
   });
 
-  it('on a phone, opens the add dialog full screen and leaves the globe alone', async () => {
+  it('on a phone, opens the full-screen Add trip with the places been, and leaves the globe alone', async () => {
     desktop = false;
+    trips$ = () => of([romeTrip(1)]);
     const fixture = await render();
 
     await clickAdd(fixture);
 
-    expect(dialog.open.mock.calls[0][1]).toMatchObject({ panelClass: 'pb-responsive-dialog' });
+    expect(dialog.open.mock.calls[0][1]).toMatchObject({
+      panelClass: 'pb-phone-add-trip',
+      disableClose: true,
+      data: { visited: [expect.objectContaining({ isoCode: 'IT', summary: '1 city · 1 trip' })] },
+    });
     expect(globe(fixture).insetRight()).toBe(0);
+  });
+
+  it('shows a place picked but not saved yet as a highlighted pin', async () => {
+    const fixture = await render();
+    const focus = TestBed.inject(MapFocusService);
+
+    focus.showPin({ lat: 48.9, lng: 2.35, label: 'Paris, France' });
+    await fixture.whenStable();
+    expect(globe(fixture).markers().at(-1)).toEqual({
+      lat: 48.9,
+      lng: 2.35,
+      label: 'Paris, France',
+      highlight: true,
+    });
+
+    focus.showPin(null);
+    await fixture.whenStable();
+    expect(
+      globe(fixture)
+        .markers()
+        .some((m) => m.highlight),
+    ).toBe(false);
+  });
+
+  it('on desktop, shows the stats and list in the side panel', async () => {
+    const fixture = await render();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('section.panel app-stats-cards')).not.toBeNull();
+    expect(el.querySelector('section.panel app-country-list')).not.toBeNull();
+    expect(el.querySelector('app-drag-sheet')).toBeNull();
+    // The extended Add trip button over the globe, and the globe at its desktop zoom
+    expect(el.querySelector('button.add')?.textContent).toContain('Add trip');
+    expect(el.querySelector('button.add-round')).toBeNull();
+    expect(globe(fixture).fill()).toBeNull();
+  });
+
+  it('on a phone, shows them in a drag sheet over the globe, collapsed to start with', async () => {
+    desktop = false;
+    const fixture = await render();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('app-drag-sheet app-stats-cards')).not.toBeNull();
+    expect(el.querySelector('app-drag-sheet app-country-list')).not.toBeNull();
+    expect(el.querySelector('section.panel')).toBeNull();
+    expect(el.querySelector('app-drag-sheet .handle')?.getAttribute('aria-expanded')).toBe('false');
+    // The title stays outside the sheet (hidden visually, but there for screen readers)
+    expect(el.querySelector('app-drag-sheet h1')).toBeNull();
+    expect(el.querySelector('h1')?.textContent).toBe('Places Been');
+    // Add trip is a round button in the top bar, not a floating one over the list
+    expect(el.querySelector('header button.add-round')?.getAttribute('aria-label')).toBe(
+      'Add trip',
+    );
+    expect(el.querySelector('button.add')).toBeNull();
+    // A near-full-width globe
+    expect(globe(fixture).fill()).toBe(0.9);
+  });
+
+  it('passes the number of trips to the stats', async () => {
+    trips$ = () => of([romeTrip(1), romeTrip(2)]);
+    const fixture = await render();
+
+    const counts = [...fixture.nativeElement.querySelectorAll('app-stats-cards .count .value')];
+    expect(counts.map((c) => (c as HTMLElement).textContent?.trim())).toEqual(['1', '1', '2']);
+  });
+
+  it('after a trip is added, says so, refreshes and opens its country', async () => {
+    const fixture = await render();
+    trips$ = () => of([romeTrip(1)]);
+
+    await clickAdd(fixture);
+    dialogClosed.next(romeTrip(1));
+    dialogClosed.complete();
+    await fixture.whenStable();
+
+    expect(snackBar.open).toHaveBeenCalledWith('Rome trip added', undefined, { duration: 3000 });
+    expect(fixture.nativeElement.querySelector('mat-expansion-panel').classList).toContain(
+      'mat-expanded',
+    );
+    // The reload picked up the new trip
+    expect(globe(fixture).markers()).toEqual([
+      { lat: 41.9, lng: 12.5, label: 'Rome, Italy · 1 trip' },
+    ]);
+  });
+
+  it('does nothing more when the add dialog is cancelled', async () => {
+    const fixture = await render();
+    trips$ = vi.fn(() => of([]));
+
+    await clickAdd(fixture);
+    dialogClosed.next(undefined);
+    dialogClosed.complete();
+    await fixture.whenStable();
+
+    expect(snackBar.open).not.toHaveBeenCalled();
+    expect(trips$).not.toHaveBeenCalled();
   });
 
   it('shows the stats and the visited countries', async () => {
@@ -198,7 +301,7 @@ describe('DashboardComponent', () => {
     });
   });
 
-  it('invites adding a first city when nothing is visited yet', async () => {
+  it('invites adding a first trip when nothing is visited yet', async () => {
     countries$ = () => of([]);
     const fixture = await render();
 
@@ -353,7 +456,9 @@ describe('DashboardComponent', () => {
 
   it('opens one dialog however often the button is clicked while it loads', async () => {
     const fixture = await render();
-    const button = fixture.nativeElement.querySelector('button.add') as HTMLElement;
+    const button = fixture.nativeElement.querySelector(
+      'button.add, button.add-round',
+    ) as HTMLElement;
 
     button.click();
     button.click();

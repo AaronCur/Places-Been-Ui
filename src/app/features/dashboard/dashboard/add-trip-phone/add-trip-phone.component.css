@@ -1,0 +1,246 @@
+/* The whole screen. The summary is see-through above its panel (the dashboard's globe shows there); the
+   pickers are opaque full screens. */
+:host {
+  position: relative;
+  display: block;
+  height: 100%;
+  color: var(--mat-sys-on-surface);
+}
+
+/* The dashboard's round buttons, and a filled pill for the main action */
+.round {
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface);
+}
+
+.pill {
+  height: 48px;
+  padding: 0 24px;
+  border-radius: 24px;
+  /* Solid when disabled too: over the globe the default faint grey barely shows */
+  --mat-button-filled-disabled-container-color: var(--mat-sys-surface-container-highest);
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  box-sizing: border-box;
+  padding: 8px 16px;
+}
+
+/* Summary: buttons float over the globe (only there: the notes screen's bar stays in the flow, above its
+   heading), and the panel is shaped like the dashboard's sheet */
+.summary-bar {
+  position: absolute;
+  z-index: 1;
+  inset: 0 0 auto;
+}
+
+.panel {
+  position: absolute;
+  inset: max(38dvh, 220px) 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  /* On a short phone only the data credit scrolls; no bar for that, like the other panels */
+  scrollbar-width: none;
+  padding: 24px 16px 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--pb-panel);
+  box-shadow: 0 -2px 12px rgb(0 0 0 / 0.16);
+}
+
+.panel mat-progress-bar {
+  position: absolute;
+  inset: 0 24px auto;
+}
+
+.headline {
+  padding: 0 8px 20px;
+}
+
+.country {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+h2 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  overflow-wrap: anywhere;
+}
+
+.headline p,
+.notes-hint {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.form-error {
+  margin: 0 8px 12px;
+  color: var(--mat-sys-error);
+}
+
+/* The three rows in one rounded box, like the Timeline's years */
+.rows {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 0;
+  border-radius: 20px;
+  background: var(--mat-sys-surface-container);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-height: 68px;
+  padding: 8px 12px 8px 16px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.row + .row {
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: -2px;
+  border-radius: 16px;
+}
+
+/* Tinted until set, then a solid tick, so progress shows at a glance */
+.row-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+}
+
+.row-icon.done {
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+}
+
+.row.error .row-icon {
+  background: var(--mat-sys-error);
+  color: var(--mat-sys-on-error);
+}
+
+.row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.row-label,
+.row-note {
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.row-value {
+  font-size: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-value.unset {
+  font-weight: 400;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.row-error {
+  font-size: 13px;
+  color: var(--mat-sys-error);
+}
+
+.chevron {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.credit {
+  margin: auto 0 0;
+  padding: 16px 8px max(24px, env(safe-area-inset-bottom));
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.credit a {
+  color: inherit;
+}
+
+/* Pickers and notes: opaque, full screen */
+.screen {
+  position: absolute;
+  inset: 0;
+  background: var(--mat-sys-surface);
+}
+
+.notes-screen {
+  display: flex;
+  flex-direction: column;
+}
+
+.notes-screen h2,
+.notes-hint {
+  margin-left: 24px;
+  margin-right: 24px;
+}
+
+.notes-screen h2 {
+  margin-top: 4px;
+}
+
+textarea {
+  flex: 1 1 auto;
+  margin: 16px 16px 6px;
+  padding: 18px 20px;
+  border: none;
+  border-radius: 20px;
+  outline: none;
+  resize: none;
+  background: var(--mat-sys-surface-container);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+  color: inherit;
+}
+
+textarea:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+}
+
+.count {
+  align-self: flex-end;
+  padding: 0 24px max(16px, env(safe-area-inset-bottom));
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}

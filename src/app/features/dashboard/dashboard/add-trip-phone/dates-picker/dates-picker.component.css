@@ -1,0 +1,151 @@
+/* Fills its screen: buttons, headline and range on top, the months scrolling below */
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.top-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  box-sizing: border-box;
+  padding: 8px 16px;
+}
+
+/* The dashboard's round buttons */
+.round {
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface);
+}
+
+.pill {
+  height: 48px;
+  padding: 0 24px;
+  border-radius: 24px;
+}
+
+h2 {
+  margin: 4px 24px 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.range {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 18px 24px 4px;
+}
+
+.end-point {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 104px;
+}
+
+.value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.value.unset {
+  color: var(--mat-sys-on-surface-variant);
+  opacity: 0.6;
+}
+
+.label,
+.length span,
+.hint {
+  font-size: 12px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.label {
+  margin-top: 2px;
+}
+
+.length {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.hint {
+  margin: 0;
+  padding: 10px 24px 12px;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* The months in one rounded box, open at the bottom edge */
+.calendar-box {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0 16px;
+  border-radius: 20px 20px 0 0;
+  background: var(--mat-sys-surface-container);
+  overflow: hidden;
+}
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  padding: 12px 8px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--mat-sys-on-surface-variant);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.months {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 8px 24px;
+  scrollbar-width: none;
+}
+
+.months::-webkit-scrollbar {
+  display: none;
+}
+
+.earlier {
+  display: flex;
+  margin: 12px auto 0;
+}
+
+/* Month headings like the Timeline's years */
+.month-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 8px 4px;
+}
+
+.month-heading h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.month-heading span {
+  font-size: 14px;
+  color: var(--mat-sys-on-surface-variant);
+}

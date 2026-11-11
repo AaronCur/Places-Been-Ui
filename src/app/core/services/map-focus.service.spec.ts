@@ -18,4 +18,15 @@ describe('MapFocusService', () => {
     // A new object means the globe's effect sees a change and flies back there
     expect(service.target()).not.toBe(first);
   });
+
+  it('holds a pin for a picked place until it is cleared', () => {
+    const service = TestBed.inject(MapFocusService);
+    expect(service.pin()).toBeNull();
+
+    service.showPin({ lat: 41.9, lng: 12.5, label: 'Rome, Italy' });
+    expect(service.pin()).toEqual({ lat: 41.9, lng: 12.5, label: 'Rome, Italy' });
+
+    service.showPin(null);
+    expect(service.pin()).toBeNull();
+  });
 });

@@ -1,4 +1,4 @@
-<div class="card">
+<div class="card count">
   <mat-icon class="badge" aria-hidden="true">flag</mat-icon>
   <div>
     <div class="value">{{ stats().totalCountries | number }}</div>
@@ -6,11 +6,19 @@
   </div>
 </div>
 
-<div class="card">
+<div class="card count">
   <mat-icon class="badge" aria-hidden="true">location_city</mat-icon>
   <div>
     <div class="value">{{ stats().totalCities | number }}</div>
     <div class="label">Cities</div>
+  </div>
+</div>
+
+<div class="card count">
+  <mat-icon class="badge" aria-hidden="true">luggage</mat-icon>
+  <div>
+    <div class="value">{{ trips() | number }}</div>
+    <div class="label">{{ trips() === 1 ? 'Trip' : 'Trips' }}</div>
   </div>
 </div>
 

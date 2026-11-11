@@ -14,15 +14,12 @@ import {
   FormBuilder,
   ReactiveFormsModule,
   ValidationErrors,
+  Validators,
 } from '@angular/forms';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
-import {
-  MatDialog,
-  MatDialogConfig,
-  MatDialogModule,
-  MatDialogRef,
-} from '@angular/material/dialog';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -37,48 +34,54 @@ import {
   startWith,
   switchMap,
 } from 'rxjs';
-import { CityResponse, ErrorResponse } from '../../../../core/models/travel.model';
+import { ErrorResponse } from '../../../../core/models/travel.model';
+import { TripResponse } from '../../../../core/models/trip.model';
+import { provideDayFirstDates } from '../../../../core/dates/day-first-date-adapter';
 import { CityOption, CountryOption, PlacesService } from '../../../../core/services/places.service';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
-import { TravelService } from '../../../../core/services/travel.service';
+import { TripService } from '../../../../core/services/trip.service';
 import { FlagComponent } from '../../../../shared/components/flag/flag.component';
-import { DOCKED_DIALOG_MARGIN, DOCKED_DIALOG_WIDTH, DialogPlacement } from './docked-dialog';
+import {
+  MAX_CITY_NAME,
+  MAX_NOTES,
+  NO_PIN_MESSAGE,
+  PickedPlace,
+  ServerField,
+  buildTripRequest,
+  filterByName,
+  isFuture,
+  placeAtCentre,
+  placeFromCity,
+  saveFailedMessage,
+  serverFieldErrors,
+} from '../add-trip-shared/trip-form';
+import { DOCKED_DIALOG_MARGIN, DOCKED_DIALOG_WIDTH } from './docked-dialog';
 
 // All ~250 countries render fine; a country can have thousands of cities, so those are capped while typing
 const MAX_CITY_OPTIONS = 50;
 // Camera heights (globe radii) for the fly-to: close enough to see the country, then the city
 const COUNTRY_ALTITUDE = 1.4;
 const CITY_ALTITUDE = 0.6;
+
 /**
- * Opens the dialog; emits the created city, or undefined if cancelled. It lives in this (lazy) file so that
+ * Opens the dialog; emits the created trip, or undefined if cancelled. It lives in this (lazy) file so that
  * MatDialog itself, not just the component, stays out of the initial bundle: callers import() this file and
  * pass their injector instead of injecting MatDialog.
  *
- * On desktop it docks at the bottom right, just above the Add city button, with a light backdrop, so the
- * globe stays in view and can be seen turning to the picked country. `centered` is the phone layout, full
- * screen via the pb-responsive-dialog class.
+ * It docks at the bottom right, just above the Add trip button, with a light backdrop, so the globe stays in
+ * view and can be seen turning to the picked country. (Phones get add-trip-phone instead.)
  */
-export function openAddCityDialog(
-  injector: Injector,
-  placement: DialogPlacement,
-): Observable<CityResponse | undefined> {
+export function openAddTripDialog(injector: Injector): Observable<TripResponse | undefined> {
   return injector
     .get(MatDialog)
-    .open<AddCityDialogComponent, void, CityResponse>(AddCityDialogComponent, {
-      ...PLACEMENTS[placement],
+    .open<AddTripDialogComponent, void, TripResponse>(AddTripDialogComponent, {
+      width: `${DOCKED_DIALOG_WIDTH}px`,
+      position: { right: `${DOCKED_DIALOG_MARGIN}px`, bottom: '96px' },
+      backdropClass: 'pb-light-backdrop',
       autoFocus: 'first-tabbable',
     })
     .afterClosed();
 }
-
-const PLACEMENTS: Record<DialogPlacement, MatDialogConfig> = {
-  centered: { width: '520px', maxWidth: '100vw', panelClass: 'pb-responsive-dialog' },
-  docked: {
-    width: `${DOCKED_DIALOG_WIDTH}px`,
-    position: { right: `${DOCKED_DIALOG_MARGIN}px`, bottom: '96px' },
-    backdropClass: 'pb-light-backdrop',
-  },
-};
 
 type CitiesState =
   | { status: 'idle' | 'loading' | 'error' }
@@ -88,16 +91,26 @@ type CitiesState =
 const isPicked = <T extends object>(value: T | string): value is T => typeof value === 'object';
 const picked = (control: AbstractControl): ValidationErrors | null =>
   isPicked(control.value) ? null : { notPicked: true };
+// Free-text city: some text that isn't only spaces
+const named = (control: AbstractControl): ValidationErrors | null =>
+  typeof control.value === 'string' && control.value.trim() ? null : { required: true };
 
-// "Add trip" dialog from the design, minus Dates and Notes until the API has trips. Country and city come from
-// the countries dataset, so the coordinates and ISO code the API needs are always right.
+// A trip can't start after today (the API's @PastOrPresent). A validator rather than the datepicker's [max]:
+// on a range input [max] would stop the end too, and a trip you're on now can end in the future.
+const notFuture = (control: AbstractControl<Date | null>): ValidationErrors | null =>
+  control.value && isFuture(control.value) ? { future: true } : null;
+
+// Country and city come from the countries dataset, so the coordinates and ISO code the API needs are always
+// right. For the few countries with no cities in the dataset (Macau, Gibraltar…) the city is typed instead and
+// the pin goes at the country's centre point.
 @Component({
-  selector: 'app-add-city-dialog',
+  selector: 'app-add-trip-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     ReactiveFormsModule,
     MatAutocompleteModule,
     MatButtonModule,
+    MatDatepickerModule,
     MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
@@ -105,19 +118,30 @@ const picked = (control: AbstractControl): ValidationErrors | null =>
     MatProgressBarModule,
     FlagComponent,
   ],
-  templateUrl: './add-city-dialog-component.html',
-  styleUrl: './add-city-dialog-component.css',
+  providers: [provideDayFirstDates()],
+  templateUrl: './add-trip-dialog-component.html',
+  styleUrl: './add-trip-dialog-component.css',
 })
-export class AddCityDialogComponent {
-  private dialogRef = inject<MatDialogRef<AddCityDialogComponent, CityResponse>>(MatDialogRef);
+export class AddTripDialogComponent {
+  private dialogRef = inject<MatDialogRef<AddTripDialogComponent, TripResponse>>(MatDialogRef);
   private places = inject(PlacesService);
-  private travel = inject(TravelService);
+  private trips = inject(TripService);
   private fb = inject(FormBuilder).nonNullable;
   private mapFocus = inject(MapFocusService);
+
+  protected readonly maxNotes = MAX_NOTES;
 
   protected readonly form = this.fb.group({
     country: this.fb.control<CountryOption | string>('', { validators: picked }),
     city: this.fb.control<CityOption | string>('', { validators: picked }),
+    dates: this.fb.group({
+      start: this.fb.control<Date | null>(null, {
+        validators: [Validators.required, notFuture],
+      }),
+      // Empty for a day trip
+      end: this.fb.control<Date | null>(null),
+    }),
+    notes: this.fb.control('', { validators: Validators.maxLength(MAX_NOTES) }),
   });
 
   protected readonly saving = signal(false);
@@ -175,7 +199,8 @@ export class AddCityDialogComponent {
     { initialValue: { status: 'idle' } as CitiesState },
   );
 
-  protected readonly noCities = computed(() => {
+  /** The picked country has no cities in the dataset, so the city is typed rather than picked */
+  protected readonly freeTextCity = computed(() => {
     const state = this.citiesState();
     return state.status === 'ready' && !state.cities.length;
   });
@@ -207,6 +232,14 @@ export class AddCityDialogComponent {
         }
       });
 
+    // The city's rule follows the dataset: picked from the list, or typed when the country has no list
+    effect(() => {
+      city.setValidators(
+        this.freeTextCity() ? [named, Validators.maxLength(MAX_CITY_NAME)] : picked,
+      );
+      city.updateValueAndValidity({ emitEvent: false });
+    });
+
     // No closing while saving: the POST would still finish, but nobody would be left to refresh the list
     effect(() => {
       this.dialogRef.disableClose = this.saving();
@@ -237,69 +270,52 @@ export class AddCityDialogComponent {
   }
 
   protected save(): void {
-    const { country, city } = this.form.getRawValue();
-    if (this.form.invalid || !isPicked(country) || !isPicked(city)) {
+    const { country, dates, notes } = this.form.getRawValue();
+    // Validators first: placeOf flags a country with no centre point, which shouldn't hide a missing name
+    const valid = this.form.valid && isPicked(country) && !!dates.start;
+    const place = valid && isPicked(country) ? this.placeOf(country) : null;
+    if (!place || !isPicked(country) || !dates.start) {
       this.form.markAllAsTouched();
       return;
     }
 
     this.saving.set(true);
     this.formError.set(null);
-    this.travel
-      .addCity({
-        name: city.name,
-        state: city.stateName,
-        countryCode: country.isoCode,
-        latitude: city.latitude,
-        longitude: city.longitude,
-      })
-      .subscribe({
-        next: (created) => this.dialogRef.close(created),
-        error: (error: HttpErrorResponse) => {
-          this.saving.set(false);
-          this.showServerError(error);
-        },
-      });
+    this.trips.addTrip(buildTripRequest(place, dates.start, dates.end, notes)).subscribe({
+      next: (created) => this.dialogRef.close(created),
+      error: (error: HttpErrorResponse) => {
+        this.saving.set(false);
+        this.showServerError(error);
+      },
+    });
   }
 
-  // Server errors go next to the field they're about
+  // The city part of the request: the picked city, or the typed name at the country's centre point
+  private placeOf(country: CountryOption): PickedPlace | null {
+    const city = this.form.controls.city.value;
+    if (isPicked(city)) return placeFromCity(country, city);
+    if (!this.freeTextCity()) return null;
+    const place = placeAtCentre(country, city);
+    // Only a missing centre point gets here: the validators have already checked the name
+    if (!place) this.form.controls.city.setErrors({ server: NO_PIN_MESSAGE });
+    return place;
+  }
+
+  // Server errors go next to the field they're about; anything else goes above the buttons
   private showServerError(error: HttpErrorResponse): void {
-    const message = (error.error as ErrorResponse | null)?.message;
-    if (error.status === 409) {
-      this.form.controls.city.setErrors({ server: 'You’ve already added this city' });
-    } else if (error.status === 400 && message?.startsWith('Unknown country code')) {
-      this.form.controls.country.setErrors({ server: 'This country isn’t supported yet' });
-    } else {
-      this.formError.set(
-        error.status === 0
-          ? 'Can’t reach the server. Check your connection and try again.'
-          : 'Something went wrong while saving. Please try again.',
-      );
+    const message = (error.error as ErrorResponse | null)?.message ?? '';
+    const fields =
+      error.status === 400 ? serverFieldErrors(message) : new Map<ServerField, string>();
+    if (fields.size) {
+      for (const [field, text] of fields) this.control(field).setErrors({ server: text });
+      this.form.markAllAsTouched();
+      return;
     }
+    this.formError.set(saveFailedMessage(error.status));
   }
-}
 
-/**
- * Options whose name, or any word in it, starts with the query ("korea" finds South Korea), names that start
- * with it first. `limit` keeps huge lists (a country's cities) from rendering thousands of options.
- */
-export function filterByName<T extends { name: string }>(
-  options: T[],
-  query: T | string,
-  limit = Infinity,
-): T[] {
-  const text = (typeof query === 'string' ? query : query.name).trim().toLocaleLowerCase();
-  if (!text) return options.slice(0, limit);
-
-  const starts: T[] = [];
-  const wordStarts: T[] = [];
-  for (const option of options) {
-    const name = option.name.toLocaleLowerCase();
-    if (name.startsWith(text)) {
-      starts.push(option);
-    } else if (name.split(/[\s\-'(]+/).some((word) => word.startsWith(text))) {
-      wordStarts.push(option);
-    }
+  private control(field: ServerField): AbstractControl {
+    const { dates, ...controls } = this.form.controls;
+    return field === 'start' || field === 'end' ? dates.controls[field] : controls[field];
   }
-  return [...starts, ...wordStarts].slice(0, limit);
 }

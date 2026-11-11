@@ -1,21 +1,67 @@
-<section class="panel" aria-label="Places visited">
-  <header class="title-row">
-    <mat-icon class="logo" aria-hidden="true">public</mat-icon>
-    <h1>Places Been</h1>
+<!-- Desktop: top of the side panel. Phone: a bar of round buttons over the globe (the title is only
+     there for screen readers), with Add trip in it rather than floating over the list. -->
+<header class="title-row" [class.covered]="addTripOpen() && !isDesktop()">
+  <mat-icon class="logo" aria-hidden="true">public</mat-icon>
+  <h1>Places Been</h1>
+  <button
+    mat-icon-button
+    type="button"
+    class="theme"
+    [attr.aria-label]="themeLabel()"
+    [title]="themeLabel()"
+    (click)="theme.cycle()"
+  >
+    <mat-icon>{{ themeIcon() }}</mat-icon>
+  </button>
+  @if (!isDesktop()) {
     <button
       mat-icon-button
       type="button"
-      [attr.aria-label]="themeLabel()"
-      [title]="themeLabel()"
-      (click)="theme.cycle()"
+      class="add-round"
+      aria-label="Add trip"
+      title="Add trip"
+      (click)="openAddTrip()"
     >
-      <mat-icon>{{ themeIcon() }}</mat-icon>
+      <mat-icon>add</mat-icon>
     </button>
-    @if (state() === 'loading') {
-      <mat-progress-bar mode="indeterminate" aria-label="Loading your places" />
-    }
-  </header>
+  }
+  @if (state() === 'loading') {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading your places" />
+  }
+</header>
 
+<!-- One panel, two homes: a side panel on desktop, a sheet over the globe on a phone -->
+@if (isDesktop()) {
+  <section class="panel" aria-label="Places visited">
+    <ng-container [ngTemplateOutlet]="panelContent" />
+  </section>
+} @else {
+  <app-drag-sheet class="sheet" label="Places visited" [(expanded)]="sheetExpanded">
+    <ng-container [ngTemplateOutlet]="panelContent" />
+  </app-drag-sheet>
+}
+
+<section class="map" aria-label="Scratch map">
+  <app-globe
+    class="globe"
+    [shapes]="shapes()"
+    [visitedCodes]="visitedCodes()"
+    [markers]="markers()"
+    [focus]="mapFocus.target()"
+    [insetRight]="globeInset()"
+    [fill]="isDesktop() ? null : 0.9"
+    (countryClick)="selectedCountry.set($event)"
+  />
+
+  @if (isDesktop()) {
+    <button mat-fab extended type="button" class="add" (click)="openAddTrip()">
+      <mat-icon>add_location_alt</mat-icon>
+      Add trip
+    </button>
+  }
+</section>
+
+<ng-template #panelContent>
   @if (state() === 'error') {
     <div class="notice" role="alert">
       <mat-icon aria-hidden="true">cloud_off</mat-icon>
@@ -28,6 +74,7 @@
     <app-stats-cards
       class="stats"
       [stats]="stats"
+      [trips]="trips().length"
       [countriesVisited]="sovereignVisited()"
       [countriesTotal]="sovereignTotal"
       [landShare]="landShare()"
@@ -49,25 +96,8 @@
     } @else {
       <div class="notice">
         <mat-icon aria-hidden="true">explore</mat-icon>
-        <p>Nothing scratched off yet. Add the first city you’ve been to.</p>
+        <p>Nothing scratched off yet. Add your first trip.</p>
       </div>
     }
   }
-</section>
-
-<section class="map" aria-label="Scratch map">
-  <app-globe
-    class="globe"
-    [shapes]="shapes()"
-    [visitedCodes]="visitedCodes()"
-    [markers]="markers()"
-    [focus]="mapFocus.target()"
-    [insetRight]="globeInset()"
-    (countryClick)="selectedCountry.set($event)"
-  />
-
-  <button mat-fab extended type="button" class="add" (click)="openAddCity()">
-    <mat-icon>add_location_alt</mat-icon>
-    Add city
-  </button>
-</section>
+</ng-template>

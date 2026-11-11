@@ -1,17 +1,17 @@
-/* Desktop (design): list panel on the left, globe filling the rest. Phone: globe on top, list below. */
+/* Desktop (design): title and list panel on the left, globe filling the rest. The title row is a sibling of
+   the panel (not inside it) so that on a phone it can sit over the globe instead. */
 :host {
-  display: flex;
-  min-height: 100vh;
-  min-height: 100dvh;
-}
-
-.panel {
-  flex: 0 0 auto;
-  width: clamp(360px, 32vw, 480px);
+  --panel-width: clamp(360px, 32vw, 480px);
+  display: grid;
+  grid-template-columns: var(--panel-width) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
   height: 100dvh;
-  overflow-y: auto;
-  box-sizing: border-box;
+}
+
+.title-row,
+.panel {
+  grid-column: 1;
   background: var(--pb-panel);
   border-right: 1px solid var(--mat-sys-outline-variant);
 }
@@ -42,6 +42,10 @@ h1 {
   margin: 0;
   font: var(--mat-sys-title-large);
   font-size: 22px;
+}
+
+.panel {
+  overflow-y: auto;
 }
 
 .stats {
@@ -82,10 +86,8 @@ h1 {
 
 .map {
   position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 100vh;
-  height: 100dvh;
+  grid-column: 2;
+  grid-row: 1 / -1;
 }
 
 .globe {
@@ -100,28 +102,100 @@ h1 {
   z-index: 2;
 }
 
+/* Phone (design, Revolut-style): the globe on top under a bar of round buttons, and the list in a sheet that
+   peeks up from the bottom and drags up over the globe */
 @media (max-width: 839px) {
   :host {
-    flex-direction: column-reverse;
+    /* Height of the bar of round buttons; the expanded sheet stops below it, so they stay in reach */
+    --top-bar: 64px;
+    /* The collapsed sheet's top, measured from the bottom of the bar; the globe fills the space above it */
+    --sheet-peek: calc(55dvh - var(--top-bar));
+    position: relative;
+    display: block;
+    overflow: hidden;
   }
 
-  .panel {
-    width: 100%;
-    height: auto;
-    overflow: visible;
-    border-right: none;
-    border-top: 1px solid var(--mat-sys-outline-variant);
+  .title-row {
+    position: absolute;
+    z-index: 3;
+    inset: 0 0 auto;
+    box-sizing: border-box;
+    height: var(--top-bar);
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    /* Only the buttons take touches; between them the globe can still be spun */
+    pointer-events: none;
   }
 
+  /* The globe says what the app is; the name stays for screen readers */
+  .logo {
+    display: none;
+  }
+
+  h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Round buttons over the globe, readable on land, sea or space */
+  .title-row button {
+    pointer-events: auto;
+    width: 48px;
+    height: 48px;
+    padding: 12px;
+    border: 1px solid var(--mat-sys-outline-variant);
+    background: color-mix(in srgb, var(--pb-panel) 80%, transparent);
+    backdrop-filter: blur(8px);
+    color: var(--mat-sys-on-surface);
+  }
+
+  /* The phone's Add trip has its own close and Save buttons in the same place */
+  .title-row.covered {
+    visibility: hidden;
+  }
+
+  .title-row .add-round {
+    border-color: transparent;
+    background: var(--mat-sys-primary);
+    color: var(--mat-sys-on-primary);
+  }
+
+  /* Reaches under the sheet's rounded corners, so the globe shows behind them rather than a gap */
   .map {
-    height: 55vh;
-    min-height: 320px;
+    position: absolute;
+    inset: 0 0 auto;
+    height: calc(var(--top-bar) + var(--sheet-peek) + 28px);
   }
 
-  /* Stays reachable while scrolling the list */
-  .add {
-    position: fixed;
-    right: 16px;
-    bottom: 16px;
+  .sheet {
+    position: absolute;
+    z-index: 2;
+    inset: var(--top-bar) 0 0;
+  }
+
+  .stats {
+    padding: 4px 16px 16px;
+  }
+
+  /* Stays under the handle while the expanded list scrolls (the Timeline tab will sit beside it) */
+  .list-heading {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    padding: 12px 16px;
+    background: var(--pb-panel);
+  }
+
+  /* Clear of the home indicator on phones that have one */
+  app-country-list {
+    display: block;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
 }
