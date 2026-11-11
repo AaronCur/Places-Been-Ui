@@ -16,6 +16,10 @@ updates:
       # Each Angular version supports a fixed TypeScript range; `ng update` bumps it when Angular does
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # @angular/build's test runner supports one Vitest major (21.x: vitest ^4); Vercel's `npm install` fails
+      # on any other. CI's `npm ci` doesn't check this, so it stays green. Moves with the Angular major.
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
     # Everything the ignore rules allow, majors included, in one PR. If CI goes red, the failing package is
     # usually the major bump; drop it with `@dependabot ignore <package> major version` and the PR rebuilds.
     groups:
