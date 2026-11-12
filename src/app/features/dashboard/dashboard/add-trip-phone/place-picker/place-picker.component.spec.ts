@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Observable, of, throwError } from 'rxjs';
 import { PlacePickerComponent } from './place-picker.component';
-import { VisitedCountry, cityKey, visitedCountries } from '../visited';
+import { VisitedCountry, cityKey, visitedCountries } from '../../add-trip-shared/visited';
 import {
   CityOption,
   CountryOption,

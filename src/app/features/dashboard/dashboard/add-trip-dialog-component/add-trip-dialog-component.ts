@@ -20,7 +20,12 @@ import {
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import {
+  MAT_DIALOG_DATA,
+  MatDialog,
+  MatDialogModule,
+  MatDialogRef,
+} from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -43,19 +48,18 @@ import { MapFocusService } from '../../../../core/services/map-focus.service';
 import { TripService } from '../../../../core/services/trip.service';
 import { FlagComponent } from '../../../../shared/components/flag/flag.component';
 import {
-  MAX_CITY_NAME,
   MAX_NOTES,
-  NO_PIN_MESSAGE,
   PickedPlace,
   ServerField,
   buildTripRequest,
   filterByName,
   isFuture,
-  placeAtCentre,
+  newPlaceFor,
   placeFromCity,
   saveFailedMessage,
   serverFieldErrors,
 } from '../add-trip-shared/trip-form';
+import { VisitedCountry, cityKey } from '../add-trip-shared/visited';
 import { DOCKED_DIALOG_MARGIN, DOCKED_DIALOG_WIDTH } from './docked-dialog';
 
 // All ~250 countries render fine; a country can have thousands of cities, so those are capped while typing
@@ -72,16 +76,25 @@ const CITY_ALTITUDE = 0.6;
  * It docks at the bottom right, just above the Add trip button, with a light backdrop, so the globe stays in
  * view and can be seen turning to the picked country. (Phones get add-trip-phone instead.)
  */
-export function openAddTripDialog(injector: Injector): Observable<TripResponse | undefined> {
+export function openAddTripDialog(
+  injector: Injector,
+  data: AddTripDialogData,
+): Observable<TripResponse | undefined> {
   return injector
     .get(MatDialog)
-    .open<AddTripDialogComponent, void, TripResponse>(AddTripDialogComponent, {
+    .open<AddTripDialogComponent, AddTripDialogData, TripResponse>(AddTripDialogComponent, {
+      data,
       width: `${DOCKED_DIALOG_WIDTH}px`,
       position: { right: `${DOCKED_DIALOG_MARGIN}px`, bottom: '96px' },
       backdropClass: 'pb-light-backdrop',
       autoFocus: 'first-tabbable',
     })
     .afterClosed();
+}
+
+export interface AddTripDialogData {
+  /** The places already been, listed first ("Been before"), as on a phone */
+  visited: readonly VisitedCountry[];
 }
 
 type CitiesState =
@@ -92,18 +105,16 @@ type CitiesState =
 const isPicked = <T extends object>(value: T | string): value is T => typeof value === 'object';
 const picked = (control: AbstractControl): ValidationErrors | null =>
   isPicked(control.value) ? null : { notPicked: true };
-// Free-text city: some text that isn't only spaces
-const named = (control: AbstractControl): ValidationErrors | null =>
-  typeof control.value === 'string' && control.value.trim() ? null : { required: true };
 
 // A trip can't start after today (the API's @PastOrPresent). A validator rather than the datepicker's [max]:
 // on a range input [max] would stop the end too, and a trip you're on now can end in the future.
 const notFuture = (control: AbstractControl<Date | null>): ValidationErrors | null =>
   control.value && isFuture(control.value) ? { future: true } : null;
 
-// Country and city come from the countries dataset, so the coordinates and ISO code the API needs are always
-// right. For the few countries with no cities in the dataset (Macau, Gibraltar…) the city is typed instead and
-// the pin goes at the country's centre point.
+// The phone's Add trip as one docked form; the two offer the same choices. Country and city come from the
+// countries dataset, so the coordinates and ISO code the API needs are always right. A typed name that isn't a
+// listed city (or any name, in a country with no city list) can be added as a new place, pinned at the
+// country's centre point.
 @Component({
   selector: 'app-add-trip-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -129,12 +140,14 @@ export class AddTripDialogComponent {
   private trips = inject(TripService);
   private fb = inject(FormBuilder).nonNullable;
   private mapFocus = inject(MapFocusService);
+  private readonly visited = inject<AddTripDialogData>(MAT_DIALOG_DATA).visited;
 
   protected readonly maxNotes = MAX_NOTES;
 
   protected readonly form = this.fb.group({
     country: this.fb.control<CountryOption | string>('', { validators: picked }),
-    city: this.fb.control<CityOption | string>('', { validators: picked }),
+    // A place, not a CityOption: a listed city and a typed new place are picked the same way
+    city: this.fb.control<PickedPlace | string>('', { validators: picked }),
     dates: this.fb.group({
       start: this.fb.control<Date | null>(null, {
         validators: [Validators.required, notFuture],
@@ -165,7 +178,8 @@ export class AddTripDialogComponent {
     const value = this.countryValue();
     return isPicked(value) ? value : null;
   });
-  private readonly selectedCity = computed(() => {
+  /** The place the form would save right now: a listed city or a new place, once picked */
+  protected readonly selectedPlace = computed(() => {
     const value = this.cityValue();
     return isPicked(value) ? value : null;
   });
@@ -173,6 +187,16 @@ export class AddTripDialogComponent {
   protected readonly countryOptions = computed(() =>
     filterByName(this.allCountries() ?? [], this.countryValue()),
   );
+  /** "Been before", above all the countries, until something is typed (then it's just results) */
+  protected readonly visitedOptions = computed(() => {
+    const value = this.countryValue();
+    if (typeof value !== 'string' || value.trim()) return [];
+    const byCode = new Map((this.allCountries() ?? []).map((c) => [c.isoCode, c]));
+    return this.visited.flatMap((v) => {
+      const country = byCode.get(v.isoCode);
+      return country ? [{ country, summary: v.summary }] : [];
+    });
+  });
 
   protected readonly retryCities$ = new Subject<void>();
 
@@ -200,26 +224,38 @@ export class AddTripDialogComponent {
     { initialValue: { status: 'idle' } as CitiesState },
   );
 
-  /** The picked country has no cities in the dataset, so the city is typed rather than picked */
-  protected readonly freeTextCity = computed(() => {
+  private readonly allCities = computed(() => {
+    const state = this.citiesState();
+    return state.status === 'ready' ? state.cities : [];
+  });
+  /** The picked country has no cities in the dataset, so every place is a typed one */
+  protected readonly noCityList = computed(() => {
     const state = this.citiesState();
     return state.status === 'ready' && !state.cities.length;
   });
-
-  protected readonly cityOptions = computed(() => {
-    const state = this.citiesState();
-    return state.status === 'ready'
-      ? filterByName(state.cities, this.cityValue(), MAX_CITY_OPTIONS)
-      : [];
+  private readonly cityText = computed(() => {
+    const value = this.cityValue();
+    return typeof value === 'string' ? value : value.cityName;
   });
 
-  /** The place the form would save right now: a picked city, or a typed one at its country's centre */
-  private readonly pinnedPlace = computed(() => {
+  /** Matching cities as places, with the trips already made to each */
+  protected readonly cityOptions = computed(() => {
     const country = this.selectedCountry();
-    const city = this.cityValue();
-    if (!country) return null;
-    if (isPicked(city)) return placeFromCity(country, city);
-    return this.freeTextCity() && typeof city === 'string' ? placeAtCentre(country, city) : null;
+    if (!country) return [];
+    const trips = this.visited.find((v) => v.isoCode === country.isoCode)?.cityTrips ?? new Map();
+    return filterByName(this.allCities(), this.cityText(), MAX_CITY_OPTIONS).map((city) => ({
+      id: city.id,
+      place: placeFromCity(country, city),
+      trips: trips.get(cityKey(city.name, city.stateName)) ?? 0,
+    }));
+  });
+
+  /** The typed text as a new place, offered after the listed cities (see newPlaceFor) */
+  protected readonly newPlace = computed(() => {
+    const country = this.selectedCountry();
+    const value = this.cityValue();
+    if (!country || typeof value !== 'string' || this.citiesState().status !== 'ready') return null;
+    return newPlaceFor(country, this.allCities(), value);
   });
 
   constructor() {
@@ -242,14 +278,6 @@ export class AddTripDialogComponent {
         }
       });
 
-    // The city's rule follows the dataset: picked from the list, or typed when the country has no list
-    effect(() => {
-      city.setValidators(
-        this.freeTextCity() ? [named, Validators.maxLength(MAX_CITY_NAME)] : picked,
-      );
-      city.updateValueAndValidity({ emitEvent: false });
-    });
-
     // No closing while saving: the POST would still finish, but nobody would be left to refresh the list
     effect(() => {
       this.dialogRef.disableClose = this.saving();
@@ -258,10 +286,10 @@ export class AddTripDialogComponent {
     // Turn the globe behind the dialog to what was picked: the country, then closer in on the city.
     // An effect, not a computed: moving the camera is a side effect outside this component.
     effect(() => {
-      const pickedCity = this.selectedCity();
+      const place = this.selectedPlace();
       const pickedCountry = this.selectedCountry();
-      if (pickedCity) {
-        this.flyTo(pickedCity.latitude, pickedCity.longitude, CITY_ALTITUDE);
+      if (place) {
+        this.flyTo(place.latitude, place.longitude, CITY_ALTITUDE);
       } else if (pickedCountry) {
         this.flyTo(pickedCountry.latitude, pickedCountry.longitude, COUNTRY_ALTITUDE);
       }
@@ -269,7 +297,7 @@ export class AddTripDialogComponent {
 
     // Highlight the place on the globe until it's saved (then it's a real marker) or dropped, as on a phone
     effect(() => {
-      const place = this.pinnedPlace();
+      const place = this.selectedPlace();
       this.mapFocus.showPin(
         place
           ? {
@@ -290,16 +318,15 @@ export class AddTripDialogComponent {
     }
   }
 
-  protected displayName(option: { name: string } | string | null): string {
-    return typeof option === 'string' ? option : (option?.name ?? '');
+  protected displayName(option: CountryOption | PickedPlace | string | null): string {
+    if (!option || typeof option === 'string') return option ?? '';
+    return 'cityName' in option ? option.cityName : option.name;
   }
 
   protected save(): void {
-    const { country, dates, notes } = this.form.getRawValue();
-    // Validators first: placeOf flags a country with no centre point, which shouldn't hide a missing name
-    const valid = this.form.valid && isPicked(country) && !!dates.start;
-    const place = valid && isPicked(country) ? this.placeOf(country) : null;
-    if (!place || !isPicked(country) || !dates.start) {
+    const { city, dates, notes } = this.form.getRawValue();
+    const place = this.form.valid && isPicked(city) ? city : null;
+    if (!place || !dates.start) {
       this.form.markAllAsTouched();
       return;
     }
@@ -313,17 +340,6 @@ export class AddTripDialogComponent {
         this.showServerError(error);
       },
     });
-  }
-
-  // The city part of the request: the picked city, or the typed name at the country's centre point
-  private placeOf(country: CountryOption): PickedPlace | null {
-    const city = this.form.controls.city.value;
-    if (isPicked(city)) return placeFromCity(country, city);
-    if (!this.freeTextCity()) return null;
-    const place = placeAtCentre(country, city);
-    // Only a missing centre point gets here: the validators have already checked the name
-    if (!place) this.form.controls.city.setErrors({ server: NO_PIN_MESSAGE });
-    return place;
   }
 
   // Server errors go next to the field they're about; anything else goes above the buttons

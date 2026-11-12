@@ -5,6 +5,12 @@
   background: rgb(0 0 0 / 0.12);
 }
 
+/* Desktop Add trip lists: an option's text spans the row, so counts ("2 trips") sit at the right edge as on
+   a phone. The panel is an overlay outside the dialog, hence a global class. */
+.pb-add-trip-options .mat-mdc-option .mdc-list-item__primary-text {
+  flex: 1 1 auto;
+}
+
 /* Phone Add trip calendar: one mat-calendar per month under the screen's own month headings and weekday
    row, so each calendar's weekday header and in-grid month label ("OCT") are left out */
 .pb-range-calendar .mat-calendar-table-header {

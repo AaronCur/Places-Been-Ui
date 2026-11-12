@@ -28,10 +28,10 @@ import { FlagComponent } from '../../../../../shared/components/flag/flag.compon
 import {
   PickedPlace,
   filterByName,
-  placeAtCentre,
+  newPlaceFor,
   placeFromCity,
 } from '../../add-trip-shared/trip-form';
-import { VisitedCountry, cityKey, count } from '../visited';
+import { VisitedCountry, cityKey, count } from '../../add-trip-shared/visited';
 
 // A country can have thousands of cities; the list is capped while nothing narrows it
 const MAX_CITY_OPTIONS = 50;
@@ -128,17 +128,11 @@ export class PlacePickerComponent {
     return this.query().trim() ? `${n} found` : count(n, 'city', 'cities');
   });
 
-  /**
-   * The typed text as a new place, once no listed city starts with it: "ath" is probably on its way to
-   * Athens, so offering "Add ath" then would only invite a mistaken tap. "Athens Riviera" still gets it.
-   */
+  /** The typed text as a new place (see newPlaceFor), once the cities have loaded */
   protected readonly newPlace = computed(() => {
     const country = this.country();
-    const typed = this.query().trim();
-    if (!country || !typed || this.citiesState().status !== 'ready') return null;
-    const text = typed.toLocaleLowerCase();
-    const mayBeListed = this.allCities().some((c) => c.name.toLocaleLowerCase().startsWith(text));
-    return mayBeListed ? null : placeAtCentre(country, typed);
+    if (!country || this.citiesState().status !== 'ready') return null;
+    return newPlaceFor(country, this.allCities(), this.query());
   });
 
   protected readonly searchLabel = computed(() => {
