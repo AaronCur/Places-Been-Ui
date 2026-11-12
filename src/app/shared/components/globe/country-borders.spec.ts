@@ -1,5 +1,5 @@
 import { CountryShape } from '../../../core/services/world.service';
-import { borderPositions, toCartesian } from './country-borders';
+import { ABOVE_SURFACE, borderPositions, toCartesian } from './country-borders';
 
 const square = (iso: string, lng: number, lat: number, size: number): CountryShape => ({
   type: 'Feature',
@@ -43,7 +43,7 @@ describe('borderPositions', () => {
     // 4 edges, none long enough to split: 4 segments of 2 points
     expect(points(positions)).toHaveLength(8);
     expect(points(positions)[0].map((v) => +v.toFixed(3))).toEqual(
-      toCartesian(0, 0, 1e-4).map((v) => +v.toFixed(3)),
+      toCartesian(0, 0, ABOVE_SURFACE).map((v) => +v.toFixed(3)),
     );
   });
 
@@ -54,8 +54,9 @@ describe('borderPositions', () => {
     const positions = borderPositions([raised, flat], (s) => (s === raised ? 0.012 : 0.006));
     const radii = points(positions).map(radius);
 
-    expect(radii.slice(0, 8).every((r) => Math.abs(r - 101.21) < 0.001)).toBe(true);
-    expect(radii.slice(8).every((r) => Math.abs(r - 100.61) < 0.001)).toBe(true);
+    // Globe radius 100: 100 × (1 + altitude + ABOVE_SURFACE)
+    expect(radii.slice(0, 8).every((r) => Math.abs(r - 101.3) < 0.001)).toBe(true);
+    expect(radii.slice(8).every((r) => Math.abs(r - 100.7) < 0.001)).toBe(true);
   });
 
   it('splits long edges so they follow the curve instead of cutting under the surface', () => {

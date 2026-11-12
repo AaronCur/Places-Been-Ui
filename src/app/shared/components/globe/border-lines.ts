@@ -8,6 +8,9 @@ export class BorderLines {
 
   constructor() {
     this.object.raycast = () => undefined; // hover and clicks go to the countries underneath
+    // Drawn after the countries (render order 0), so where depth is too coarse to separate a border from its
+    // country's surface the border still wins instead of being painted over
+    this.object.renderOrder = 1;
   }
 
   /** New positions, e.g. after a country is visited and rises */

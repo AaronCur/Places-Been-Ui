@@ -195,8 +195,9 @@ export class GlobeComponent {
         const dpr = window.devicePixelRatio || 1;
         const globe = new Globe(host, {
           animateIn: false,
-          // Anti-aliasing only where pixels are big enough for jagged edges to show
-          rendererConfig: { antialias: dpr < MAX_PIXEL_RATIO, powerPreference: 'high-performance' },
+          // Anti-aliasing everywhere: without it thin lines (borders, grid) shimmer as the globe turns on
+          // phones and tablets. Affordable since the borders became one draw call.
+          rendererConfig: { antialias: true, powerPreference: 'high-performance' },
         })
           .showGraticules(true)
           .atmosphereAltitude(0.12)
