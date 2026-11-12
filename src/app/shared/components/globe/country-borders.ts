@@ -6,8 +6,10 @@ import { CountryShape } from '../../../core/services/world.service';
 
 /** three-globe's globe radius, in scene units */
 const GLOBE_RADIUS = 100;
-// Like globe.gl's strokes: a hair above the country's surface so the line isn't hidden by it
-const ABOVE_SURFACE = 1e-4;
+// A little above the country's surface so the surface can't hide the line. globe.gl's strokes used 1e-4 (0.01
+// units), which phone GPUs, with less precise depth, can't always tell apart from the surface: the borders broke
+// up and flickered. 0.1 units clears that and is still far too small to see as a gap.
+export const ABOVE_SURFACE = 1e-3;
 // Long edges are split so the straight chord between their ends doesn't cut below the curved surface
 const MAX_STEP_DEG = 2;
 
