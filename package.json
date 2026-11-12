@@ -27,12 +27,14 @@
     "flag-icons": "^7.6.0",
     "globe.gl": "^2.46.2",
     "rxjs": "~7.8.0",
+    "three": "^0.186.1",
     "tslib": "^2.9.1"
   },
   "devDependencies": {
     "@angular/build": "^21.2.29",
     "@angular/cli": "^21.2.29",
     "@angular/compiler-cli": "^21.2.26",
+    "@types/three": "^0.186.0",
     "jsdom": "^31.0.0",
     "prettier": "^3.9.10",
     "typescript": "~5.9.2",

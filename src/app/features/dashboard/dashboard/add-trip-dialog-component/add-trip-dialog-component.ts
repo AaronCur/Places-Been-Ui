@@ -2,11 +2,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  ElementRef,
   Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -67,6 +70,11 @@ const MAX_CITY_OPTIONS = 50;
 // Camera heights (globe radii) for the fly-to: close enough to see the country, then the city
 const COUNTRY_ALTITUDE = 1.4;
 const CITY_ALTITUDE = 0.6;
+/**
+ * Focusing the country field opens its list: ~260 options with flags, a few hundred ms of rendering. Done as
+ * the dialog opened, that landed on the globe's 400ms slide and made it jump; this waits for the slide.
+ */
+export const COUNTRY_FOCUS_DELAY_MS = 450;
 
 /**
  * Opens the dialog; emits the created trip, or undefined if cancelled. It lives in this (lazy) file so that
@@ -87,7 +95,8 @@ export function openAddTripDialog(
       width: `${DOCKED_DIALOG_WIDTH}px`,
       position: { right: `${DOCKED_DIALOG_MARGIN}px`, bottom: '96px' },
       backdropClass: 'pb-light-backdrop',
-      autoFocus: 'first-tabbable',
+      // The dialog itself; the country field follows once the globe has slid aside (COUNTRY_FOCUS_DELAY_MS)
+      autoFocus: 'dialog',
     })
     .afterClosed();
 }
@@ -98,8 +107,7 @@ export interface AddTripDialogData {
 }
 
 type CitiesState =
-  | { status: 'idle' | 'loading' | 'error' }
-  | { status: 'ready'; cities: CityOption[] };
+  { status: 'idle' | 'loading' | 'error' } | { status: 'ready'; cities: CityOption[] };
 
 // Picked options are objects; while the user is still typing, the control holds the text
 const isPicked = <T extends object>(value: T | string): value is T => typeof value === 'object';
@@ -140,6 +148,7 @@ export class AddTripDialogComponent {
   private trips = inject(TripService);
   private fb = inject(FormBuilder).nonNullable;
   private mapFocus = inject(MapFocusService);
+  private destroyRef = inject(DestroyRef);
   private readonly visited = inject<AddTripDialogData>(MAT_DIALOG_DATA).visited;
 
   protected readonly maxNotes = MAX_NOTES;
@@ -258,8 +267,21 @@ export class AddTripDialogComponent {
     return newPlaceFor(country, this.allCities(), value);
   });
 
+  private readonly countryInput = viewChild.required<ElementRef<HTMLInputElement>>('countryInput');
+
   constructor() {
     const { country, city } = this.form.controls;
+
+    // Into the country field once the globe has slid aside, unless the user is already in a field by then
+    afterNextRender(() => {
+      const timer = setTimeout(() => {
+        const active = document.activeElement;
+        const unclaimed =
+          !active || active === document.body || active.matches('mat-dialog-container');
+        if (unclaimed) this.countryInput().nativeElement.focus();
+      }, COUNTRY_FOCUS_DELAY_MS);
+      this.destroyRef.onDestroy(() => clearTimeout(timer));
+    });
     city.disable();
 
     // A new country invalidates the city; the city field only opens once a country is picked
@@ -308,7 +330,7 @@ export class AddTripDialogComponent {
           : null,
       );
     });
-    inject(DestroyRef).onDestroy(() => this.mapFocus.showPin(null));
+    this.destroyRef.onDestroy(() => this.mapFocus.showPin(null));
   }
 
   private flyTo(lat: number, lng: number, altitude: number): void {

@@ -10,7 +10,7 @@
       @if (selectedCountry(); as country) {
         <app-flag matIconPrefix [code]="country.isoCode" [size]="28" />
       }
-      <input matInput formControlName="country" [matAutocomplete]="countryAuto" />
+      <input #countryInput matInput formControlName="country" [matAutocomplete]="countryAuto" />
       <mat-autocomplete
         #countryAuto="matAutocomplete"
         class="pb-add-trip-options"
