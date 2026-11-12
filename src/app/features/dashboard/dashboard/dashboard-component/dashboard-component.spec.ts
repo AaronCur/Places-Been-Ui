@@ -134,6 +134,21 @@ describe('DashboardComponent', () => {
     expect(globe(fixture).insetRight()).toBe(0);
   });
 
+  it('on a phone, collapses an expanded sheet when Add trip opens', async () => {
+    desktop = false;
+    const fixture = await render();
+    const handle = () =>
+      (fixture.nativeElement as HTMLElement).querySelector('app-drag-sheet .handle') as HTMLElement;
+
+    handle().click();
+    await fixture.whenStable();
+    expect(handle().getAttribute('aria-expanded')).toBe('true');
+
+    await clickAdd(fixture);
+
+    expect(handle().getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('shows a place picked but not saved yet as a highlighted pin', async () => {
     const fixture = await render();
     const focus = TestBed.inject(MapFocusService);

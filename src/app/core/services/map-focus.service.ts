@@ -17,7 +17,7 @@ export class MapFocusService {
   readonly target = this._target.asReadonly();
 
   private readonly _pin = signal<MapPin | null>(null);
-  /** A place picked but not saved yet (the phone's add dialog), shown highlighted until it's saved or dropped */
+  /** A place picked but not saved yet (in either Add trip), shown highlighted until it's saved or dropped */
   readonly pin = this._pin.asReadonly();
 
   focus(target: MapFocus): void {

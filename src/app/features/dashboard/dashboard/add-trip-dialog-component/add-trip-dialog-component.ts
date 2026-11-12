@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Injector,
   computed,
   effect,
@@ -212,6 +213,15 @@ export class AddTripDialogComponent {
       : [];
   });
 
+  /** The place the form would save right now: a picked city, or a typed one at its country's centre */
+  private readonly pinnedPlace = computed(() => {
+    const country = this.selectedCountry();
+    const city = this.cityValue();
+    if (!country) return null;
+    if (isPicked(city)) return placeFromCity(country, city);
+    return this.freeTextCity() && typeof city === 'string' ? placeAtCentre(country, city) : null;
+  });
+
   constructor() {
     const { country, city } = this.form.controls;
     city.disable();
@@ -256,6 +266,21 @@ export class AddTripDialogComponent {
         this.flyTo(pickedCountry.latitude, pickedCountry.longitude, COUNTRY_ALTITUDE);
       }
     });
+
+    // Highlight the place on the globe until it's saved (then it's a real marker) or dropped, as on a phone
+    effect(() => {
+      const place = this.pinnedPlace();
+      this.mapFocus.showPin(
+        place
+          ? {
+              lat: place.latitude,
+              lng: place.longitude,
+              label: `${place.cityName}, ${place.countryName}`,
+            }
+          : null,
+      );
+    });
+    inject(DestroyRef).onDestroy(() => this.mapFocus.showPin(null));
   }
 
   private flyTo(lat: number, lng: number, altitude: number): void {
