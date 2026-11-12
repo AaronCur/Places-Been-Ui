@@ -13,16 +13,42 @@
       <input matInput formControlName="country" [matAutocomplete]="countryAuto" />
       <mat-autocomplete
         #countryAuto="matAutocomplete"
+        class="pb-add-trip-options"
         [displayWith]="displayName"
         autoActiveFirstOption
       >
-        @for (option of countryOptions(); track option.isoCode) {
-          <mat-option [value]="option">
-            <span class="option">
-              <app-flag [code]="option.isoCode" [size]="28" />
-              {{ option.name }}
-            </span>
-          </mat-option>
+        <!-- As on a phone: the countries already visited first, until something is typed -->
+        @if (visitedOptions().length) {
+          <mat-optgroup label="Been before">
+            @for (option of visitedOptions(); track option.country.isoCode) {
+              <mat-option [value]="option.country">
+                <span class="option">
+                  <app-flag [code]="option.country.isoCode" [size]="28" />
+                  <span class="option-name">{{ option.country.name }}</span>
+                  <span class="meta">{{ option.summary }}</span>
+                </span>
+              </mat-option>
+            }
+          </mat-optgroup>
+          <mat-optgroup label="All countries">
+            @for (option of countryOptions(); track option.isoCode) {
+              <mat-option [value]="option">
+                <span class="option">
+                  <app-flag [code]="option.isoCode" [size]="28" />
+                  <span class="option-name">{{ option.name }}</span>
+                </span>
+              </mat-option>
+            }
+          </mat-optgroup>
+        } @else {
+          @for (option of countryOptions(); track option.isoCode) {
+            <mat-option [value]="option">
+              <span class="option">
+                <app-flag [code]="option.isoCode" [size]="28" />
+                <span class="option-name">{{ option.name }}</span>
+              </span>
+            </mat-option>
+          }
         }
       </mat-autocomplete>
       @if (countriesLoading()) {
@@ -44,15 +70,9 @@
     <mat-form-field appearance="outline" subscriptSizing="dynamic">
       <mat-label>City</mat-label>
       <mat-icon matIconPrefix aria-hidden="true">{{
-        freeTextCity() ? 'edit_location_alt' : 'search'
+        selectedPlace()?.approximate ? 'edit_location_alt' : 'search'
       }}</mat-icon>
-      <!-- One input either way; with no city list the autocomplete is switched off and the name is typed -->
-      <input
-        matInput
-        formControlName="city"
-        [matAutocomplete]="cityAuto"
-        [matAutocompleteDisabled]="freeTextCity()"
-      />
+      <input matInput formControlName="city" [matAutocomplete]="cityAuto" />
       @if (citiesState().status === 'error') {
         <button
           matIconSuffix
@@ -66,17 +86,37 @@
       }
       <mat-autocomplete
         #cityAuto="matAutocomplete"
+        class="pb-add-trip-options"
         [displayWith]="displayName"
         autoActiveFirstOption
       >
         @for (option of cityOptions(); track option.id) {
-          <mat-option [value]="option">
+          <mat-option [value]="option.place">
             <span class="option">
               <mat-icon aria-hidden="true">location_on</mat-icon>
-              <span class="city-name">{{ option.name }}</span>
-              @if (option.stateName) {
-                <span class="state">{{ option.stateName }}</span>
+              <span class="option-name">{{ option.place.cityName }}</span>
+              @if (option.place.state) {
+                <span class="state">{{ option.place.state }}</span>
               }
+              @if (option.trips) {
+                <span class="meta">{{
+                  option.trips === 1 ? '1 trip' : option.trips + ' trips'
+                }}</span>
+              }
+            </span>
+          </mat-option>
+        }
+        <!-- Not in the list: added as a new place at the country's centre, as on a phone -->
+        @if (newPlace(); as place) {
+          <mat-option class="new-place" [value]="place">
+            <span class="option">
+              <mat-icon aria-hidden="true">add_location_alt</mat-icon>
+              <span class="new-place-text">
+                <span class="new-place-title">Add “{{ place.cityName }}”</span>
+                <span class="state"
+                  >Not in the list? It’s pinned at the centre of {{ place.countryName }}</span
+                >
+              </span>
             </span>
           </mat-option>
         }
@@ -92,18 +132,18 @@
           <mat-hint class="error-hint" role="alert">Couldn’t load cities.</mat-hint>
         }
       }
-      @if (freeTextCity()) {
-        <!-- The pin goes at the country’s centre -->
-        <mat-hint>No city list here: type the place name</mat-hint>
+      <!-- Flat on purpose: a mat-hint inside a nested @if isn't projected into the hint slot -->
+      @if (selectedPlace()?.approximate) {
+        <mat-hint>Pinned at the centre of {{ selectedPlace()!.countryName }}</mat-hint>
+      } @else if (!selectedPlace() && noCityList()) {
+        <mat-hint
+          >No city list for {{ selectedCountry()?.name }}. Type the name of the place.</mat-hint
+        >
       }
       @if (form.controls.city.hasError('server')) {
         <mat-error>{{ form.controls.city.getError('server') }}</mat-error>
       } @else if (form.controls.city.hasError('notPicked')) {
-        <mat-error>Pick a city from the list</mat-error>
-      } @else if (form.controls.city.hasError('required')) {
-        <mat-error>Type the name of the place</mat-error>
-      } @else if (form.controls.city.hasError('maxlength')) {
-        <mat-error>That name is too long</mat-error>
+        <mat-error>Pick a place from the list</mat-error>
       }
     </mat-form-field>
 

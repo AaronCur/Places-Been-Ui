@@ -34,7 +34,7 @@ import {
 } from '../add-trip-shared/trip-form';
 import { DatesPickerComponent, TripDates } from './dates-picker/dates-picker.component';
 import { PickerStep, PlacePickerComponent } from './place-picker/place-picker.component';
-import { VisitedCountry } from './visited';
+import { VisitedCountry } from '../add-trip-shared/visited';
 
 export interface AddTripPhoneData {
   /** The places already visited, for the picker's "Been before" */

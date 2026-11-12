@@ -1,5 +1,6 @@
-// The dashboard's places as the phone picker's "Been before" list. Its own small file because the dashboard
-// builds it eagerly, and importing it from the picker would pull the (lazy) picker into the initial bundle.
+// The dashboard's places as Add trip's "Been before" list (both dialogs). Its own small file because the
+// dashboard builds it eagerly, and importing it from trip-form or a dialog would pull those into the initial
+// bundle.
 import { CountryResponse } from '../../../../core/models/travel.model';
 import { TripResponse } from '../../../../core/models/trip.model';
 

@@ -3,6 +3,7 @@ import {
   buildTripRequest,
   filterByName,
   isFuture,
+  newPlaceFor,
   placeAtCentre,
   placeFromCity,
   serverFieldErrors,
@@ -48,6 +49,21 @@ describe('placeAtCentre', () => {
     expect(placeAtCentre(italy, '   ')).toBeNull();
     expect(placeAtCentre(italy, 'x'.repeat(256))).toBeNull();
     expect(placeAtCentre({ ...italy, latitude: NaN }, 'Somewhere')).toBeNull();
+  });
+});
+
+describe('newPlaceFor', () => {
+  it('offers typed text as a new place once no listed city starts with it', () => {
+    expect(newPlaceFor(italy, [rome], 'ro')).toBeNull(); // on its way to Rome
+    expect(newPlaceFor(italy, [rome], 'ROME')).toBeNull();
+    expect(newPlaceFor(italy, [rome], ' Rome Ciampino ')).toEqual(
+      expect.objectContaining({ cityName: 'Rome Ciampino', latitude: 42.8, approximate: true }),
+    );
+  });
+
+  it('takes any name where there is no city list, but not a blank one', () => {
+    expect(newPlaceFor(italy, [], 'Upper Rock')?.cityName).toBe('Upper Rock');
+    expect(newPlaceFor(italy, [], '  ')).toBeNull();
   });
 });
 

@@ -8,7 +8,7 @@ import { Observable, Subject, of, throwError } from 'rxjs';
 import { AddTripPhoneComponent, describeDates } from './add-trip-phone.component';
 import { DatesPickerComponent, TripDates } from './dates-picker/dates-picker.component';
 import { PickerStep, PlacePickerComponent } from './place-picker/place-picker.component';
-import { VisitedCountry } from './visited';
+import { VisitedCountry } from '../add-trip-shared/visited';
 import { PickedPlace } from '../add-trip-shared/trip-form';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
 import { TripService } from '../../../../core/services/trip.service';

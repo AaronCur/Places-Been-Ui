@@ -51,6 +51,22 @@ export function placeAtCentre(country: CountryOption, typed: string): PickedPlac
   };
 }
 
+/**
+ * The typed text as a new place, once no listed city starts with it: "ath" is probably on its way to Athens,
+ * so offering "Add ath" then would only invite a mistaken pick. "Athens Riviera" still gets it. With no city
+ * list at all (Gibraltar…), any name does.
+ */
+export function newPlaceFor(
+  country: CountryOption,
+  cities: readonly CityOption[],
+  typed: string,
+): PickedPlace | null {
+  const text = typed.trim().toLocaleLowerCase();
+  if (!text) return null;
+  const mayBeListed = cities.some((c) => c.name.toLocaleLowerCase().startsWith(text));
+  return mayBeListed ? null : placeAtCentre(country, typed);
+}
+
 /** The POST /api/trips body. No end date is a day trip; blank notes are left out. */
 export function buildTripRequest(
   place: Pick<PickedPlace, 'countryCode' | 'cityName' | 'state' | 'latitude' | 'longitude'>,

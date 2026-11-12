@@ -48,7 +48,7 @@ import {
 import { StatsCardsComponent } from '../stats-cards-component/stats-cards-component';
 import { DragSheetComponent } from '../../../../shared/components/drag-sheet/drag-sheet.component';
 import { DESKTOP_QUERY, DOCKED_DIALOG_INSET } from '../add-trip-dialog-component/docked-dialog';
-import { visitedCountries } from '../add-trip-phone/visited';
+import { visitedCountries } from '../add-trip-shared/visited';
 
 @Component({
   selector: 'app-dashboard',
@@ -212,6 +212,8 @@ export class DashboardComponent {
     // Phone: an expanded sheet would show through behind Add trip's panel; it stays down after it closes
     // too, so the globe shows where the trip went
     this.sheetExpanded.set(false);
+    // Both list the places already been first
+    const data = { visited: visitedCountries(this.countries(), this.tripsByCity()) };
 
     const opened$ = this.isDesktop()
       ? from(import('../add-trip-dialog-component/add-trip-dialog-component')).pipe(
@@ -219,15 +221,11 @@ export class DashboardComponent {
             // Only now, as the dialog appears: on the first click the lazy chunk takes a moment to arrive,
             // and the globe shouldn't start sliding before there's a dialog to make room for
             this.dialogDocked.set(true);
-            return openAddTripDialog(this.injector);
+            return openAddTripDialog(this.injector, data);
           }),
         )
       : from(import('../add-trip-phone/add-trip-phone.component')).pipe(
-          switchMap(({ openAddTripPhoneDialog }) =>
-            openAddTripPhoneDialog(this.injector, {
-              visited: visitedCountries(this.countries(), this.tripsByCity()),
-            }),
-          ),
+          switchMap(({ openAddTripPhoneDialog }) => openAddTripPhoneDialog(this.injector, data)),
         );
     opened$
       .pipe(

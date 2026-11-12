@@ -1,12 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
-import { MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { AddTripDialogComponent } from './add-trip-dialog-component';
 import { CityOption, CountryOption, PlacesService } from '../../../../core/services/places.service';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
 import { TripService } from '../../../../core/services/trip.service';
 import { TripRequest, TripResponse } from '../../../../core/models/trip.model';
+import { VisitedCountry, cityKey } from '../add-trip-shared/visited';
 
 const germany: CountryOption = { isoCode: 'DE', name: 'Germany', latitude: 51, longitude: 9 };
 // No cities in the test dataset, like Gibraltar or Macau in the real one
@@ -38,6 +39,12 @@ const created: TripResponse = {
   country: { isoCode: 'DE', name: 'Germany', flag: '🇩🇪' },
 };
 
+const beenToGermany: VisitedCountry = {
+  isoCode: 'DE',
+  summary: '1 city · 2 trips',
+  cityTrips: new Map([[cityKey('Berlin', 'Berlin'), 2]]),
+};
+
 const badRequest = (message: string) =>
   throwError(() => new HttpErrorResponse({ status: 400, error: { message } }));
 
@@ -56,11 +63,12 @@ describe('AddTripDialogComponent', () => {
     };
   });
 
-  async function render() {
+  async function render(visited: VisitedCountry[] = []) {
     dialogRef = { close: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         { provide: MatDialogRef, useValue: dialogRef },
+        { provide: MAT_DIALOG_DATA, useValue: { visited } },
         {
           provide: PlacesService,
           useValue: {
@@ -90,10 +98,13 @@ describe('AddTripDialogComponent', () => {
   };
   const text = (fixture: Fixture) => fixture.nativeElement.textContent as string;
 
-  // Options in the panel this input opened (each input's aria-controls names its own panel)
+  // Options in the panel this input opened (each input's aria-controls names its own panel), as the user
+  // reads them: the name and its second line or count, without the icon names
   const options = (input: HTMLInputElement) =>
     [...document.querySelectorAll(`#${input.getAttribute('aria-controls')} mat-option`)].map((o) =>
-      o.textContent!.replace(/\s+/g, ' ').trim(),
+      [...o.querySelectorAll('.option-name, .new-place-title, .state, .meta')]
+        .map((part) => part.textContent!.replace(/\s+/g, ' ').trim())
+        .join(' '),
     );
 
   // Types like a user: input events through the autocomplete trigger / datepicker input, not
@@ -270,24 +281,83 @@ describe('AddTripDialogComponent', () => {
     expect(focus.pin()).toBeNull();
   });
 
-  describe('a country with no cities in the dataset', () => {
-    it('highlights a typed city at the country’s centre', async () => {
+  it('lists the countries already visited first, until something is typed', async () => {
+    const fixture = await render([beenToGermany]);
+    const { country } = inputs(fixture);
+
+    country.focus();
+    await fixture.whenStable();
+    expect(
+      [...document.querySelectorAll('mat-optgroup')].map((g) => g.getAttribute('label')),
+    ).toEqual(['Been before', 'All countries']);
+    expect(options(country)).toEqual(['Germany 1 city · 2 trips', 'Germany', 'Gibraltar']);
+
+    await type(fixture, country, 'g');
+    expect(document.querySelector('mat-optgroup')).toBeNull();
+    expect(options(country)).toEqual(['Germany', 'Gibraltar']);
+  });
+
+  it('shows the trips already made to each city', async () => {
+    const fixture = await render([beenToGermany]);
+
+    await pick(fixture, inputs(fixture)['country'], 'Germany');
+    await type(fixture, inputs(fixture)['city'], 'b');
+
+    expect(options(inputs(fixture)['city'])).toEqual([
+      'Berlin Berlin 2 trips',
+      'Bonn North Rhine-Westphalia',
+    ]);
+  });
+
+  describe('a place that isn’t a listed city', () => {
+    it('can be added, pinned at the country’s centre', async () => {
       const fixture = await render();
       const focus = TestBed.inject(MapFocusService);
+      const { city } = inputs(fixture);
 
-      await pick(fixture, inputs(fixture)['country'], 'Gibraltar');
-      await type(fixture, inputs(fixture)['city'], 'Gibraltar Town');
+      await pick(fixture, inputs(fixture)['country'], 'Germany');
+      await type(fixture, city, 'Black Forest');
+      expect(options(city)).toEqual([
+        'Add “Black Forest” Not in the list? It’s pinned at the centre of Germany',
+      ]);
+      expect(focus.pin()).toBeNull(); // offered, not picked yet
 
-      expect(focus.pin()).toEqual({ lat: 36.13, lng: -5.35, label: 'Gibraltar Town, Gibraltar' });
+      await pick(fixture, city, 'Black Forest');
+      expect(city.value).toBe('Black Forest');
+      expect(text(fixture)).toContain('Pinned at the centre of Germany');
+      expect(focus.pin()).toEqual({ lat: 51, lng: 9, label: 'Black Forest, Germany' });
+
+      await type(fixture, inputs(fixture)['start'], '01/05/2025');
+      await submit(fixture);
+      expect(sent).toEqual([
+        expect.objectContaining({
+          cityName: 'Black Forest',
+          state: null,
+          latitude: 51,
+          longitude: 9,
+        }),
+      ]);
     });
 
-    it('lets the city be typed and pins it at the country’s centre', async () => {
+    it('isn’t offered while the text could still be a listed city', async () => {
+      const fixture = await render();
+      const { city } = inputs(fixture);
+      await pick(fixture, inputs(fixture)['country'], 'Germany');
+
+      await type(fixture, city, 'bon'); // on its way to Bonn
+      expect(options(city)).toEqual(['Bonn North Rhine-Westphalia']);
+
+      await type(fixture, city, 'Bonn Old Town');
+      expect(options(city)).toEqual([expect.stringContaining('Add “Bonn Old Town”')]);
+    });
+
+    it('is the only way to add one where the country has no city list', async () => {
       const fixture = await render();
 
       await pick(fixture, inputs(fixture)['country'], 'Gibraltar');
-      expect(text(fixture)).toContain('No city list here');
+      expect(text(fixture)).toContain('No city list for Gibraltar. Type the name of the place.');
 
-      await type(fixture, inputs(fixture)['city'], '  Gibraltar Town ');
+      await pick(fixture, inputs(fixture)['city'], '  Gibraltar Town ');
       await type(fixture, inputs(fixture)['start'], '01/05/2025');
       await submit(fixture);
 
@@ -302,27 +372,16 @@ describe('AddTripDialogComponent', () => {
       ]);
     });
 
-    it('still needs a name', async () => {
+    it('isn’t saved as typed text that was never picked', async () => {
       const fixture = await render();
 
       await pick(fixture, inputs(fixture)['country'], 'Gibraltar');
-      await type(fixture, inputs(fixture)['city'], '   ');
+      await type(fixture, inputs(fixture)['city'], 'Somewhere');
       await type(fixture, inputs(fixture)['start'], '01/05/2025');
       await submit(fixture);
 
-      expect(text(fixture)).toContain('Type the name of the place');
+      expect(text(fixture)).toContain('Pick a place from the list');
       expect(sent).toEqual([]);
-    });
-
-    it('goes back to picking from the list when another country is chosen', async () => {
-      const fixture = await render();
-
-      await pick(fixture, inputs(fixture)['country'], 'Gibraltar');
-      await pick(fixture, inputs(fixture)['country'], 'Germany');
-      await type(fixture, inputs(fixture)['city'], 'Somewhere');
-      await submit(fixture);
-
-      expect(text(fixture)).toContain('Pick a city from the list');
     });
   });
 
