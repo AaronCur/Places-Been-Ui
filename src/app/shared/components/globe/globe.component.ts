@@ -32,6 +32,15 @@ const DEFAULT_ALTITUDE = 2.2;
 const FLY_MS = 1000;
 // A bit longer than the dialog's own entrance, so the globe settles just after the dialog is in place
 const SLIDE_MS = 400;
+const POLYGONS_MS = 300;
+// globe.gl's default for markers growing in
+const POINTS_MS = 1000;
+// How long the globe keeps drawing after the last thing that moved it: covers the spin coasting to a stop
+// after a drag (the controls' damping) and a hover tooltip following the pointer
+const IDLE_MS = 1500;
+// Drawing at the full device pixel ratio (2–3 on tablets and phones) costs 2–4x the pixels for edges that
+// look almost the same at 1.5
+const MAX_PIXEL_RATIO = 1.5;
 
 interface Size {
   width: number;
@@ -58,6 +67,58 @@ export function altitudeToFit(width: number, height: number, fill: number, fovDe
   return 1 / Math.sin(halfAngle) - 1;
 }
 
+/**
+ * Runs a render loop only while needed. Each wake() keeps it running for `busyMs` (something animating: a
+ * fly-to, a transition) plus `idleMs`, then pauses it; a wake while running just extends the time, so a drag
+ * or a hover keeps it going for as long as it lasts. Starts running, as globe.gl's loop does.
+ */
+export class IdleLoop {
+  private running = true;
+  private timer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor(
+    private readonly pause: () => void,
+    private readonly resume: () => void,
+    private readonly idleMs: number,
+  ) {}
+
+  wake(busyMs = 0): void {
+    if (!this.running) {
+      this.running = true;
+      this.resume();
+    }
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.running = false;
+      this.pause();
+    }, busyMs + this.idleMs);
+  }
+
+  /** No more pausing (the globe is being destroyed) */
+  stop(): void {
+    clearTimeout(this.timer);
+  }
+}
+
+/**
+ * `markers`, with each one equal to a marker in `cache` (the last call's result) swapped for that same
+ * object, and the cache for next time. globe.gl matches data to 3D objects by identity, so only markers that
+ * really changed get rebuilt.
+ */
+export function reuseMarkers(
+  markers: readonly GlobeMarker[],
+  cache: ReadonlyMap<string, GlobeMarker>,
+): { points: GlobeMarker[]; cache: Map<string, GlobeMarker> } {
+  const next = new Map<string, GlobeMarker>();
+  const points = markers.map((marker) => {
+    const key = `${marker.lat},${marker.lng},${marker.highlight ? 1 : 0},${marker.label}`;
+    const point = next.get(key) ?? cache.get(key) ?? marker;
+    next.set(key, point);
+    return point;
+  });
+  return { points, cache: next };
+}
+
 // The two three.js PerspectiveCamera methods used here (three's own types aren't installed)
 interface ViewOffsetCamera {
   setViewOffset(
@@ -73,6 +134,10 @@ interface ViewOffsetCamera {
 
 // 3D scratch map: visited countries filled, a pin per city. globe.gl (three.js + WebGL) is loaded with a dynamic
 // import, so its ~600 KB only downloads when the globe is shown, and only in the browser (afterNextRender).
+//
+// globe.gl redraws every frame forever, which keeps the GPU busy under the phone's sheet and pickers and
+// competes with their animations. So it only runs while something is moving it (see wake()) and sleeps after,
+// leaving the last frame on screen.
 @Component({
   selector: 'app-globe',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -104,20 +169,29 @@ export class GlobeComponent {
   private readonly size = signal<Size>({ width: 0, height: 0 });
   private shift = 0; // px the picture is currently slid left
   private slideFrame = 0;
+  private loop: IdleLoop | undefined;
+  /** The marker objects last given to the globe, by content: unchanged markers keep their 3D object */
+  private pointCache = new Map<string, GlobeMarker>();
 
   constructor() {
     const destroyRef = inject(DestroyRef);
+    destroyRef.onDestroy(() => this.loop?.stop());
 
     afterNextRender(async () => {
       try {
         const { default: Globe } = await import('globe.gl');
         if (destroyRef.destroyed) return;
         const host = this.canvasHost().nativeElement;
-        const globe = new Globe(host, { animateIn: false })
+        const dpr = window.devicePixelRatio || 1;
+        const globe = new Globe(host, {
+          animateIn: false,
+          // Anti-aliasing only where pixels are big enough for jagged edges to show
+          rendererConfig: { antialias: dpr < MAX_PIXEL_RATIO, powerPreference: 'high-performance' },
+        })
           .showGraticules(true)
           .atmosphereAltitude(0.12)
           .polygonAltitude((d) => (this.isVisited(d) ? 0.012 : 0.006))
-          .polygonsTransitionDuration(300)
+          .polygonsTransitionDuration(POLYGONS_MS)
           .polygonLabel((d) => escapeHtml((d as CountryShape).properties.name))
           .onPolygonClick((d) => this.countryClick.emit((d as CountryShape).properties.iso))
           .pointLat('lat')
@@ -126,20 +200,34 @@ export class GlobeComponent {
           .pointRadius((d) => ((d as GlobeMarker).highlight ? 0.8 : 0.45))
           .pointLabel((d) => escapeHtml((d as GlobeMarker).label))
           .pointOfView({ altitude: DEFAULT_ALTITUDE });
+        // Kept through resizes: setSize() multiplies by whatever ratio was set
+        globe.renderer().setPixelRatio(Math.min(MAX_PIXEL_RATIO, dpr));
 
         const resize = new ResizeObserver(([entry]) => {
           const { width, height } = entry.contentRect;
           globe.width(width).height(height);
           this.size.set({ width, height });
+          this.wake(globe); // a resize clears the canvas, so it needs a frame drawn
         });
         resize.observe(host);
+
+        // Anything the user does to the globe: drag, scroll-zoom, hover (tooltips are found per frame).
+        // Passive: these only keep it drawing, the controls handle the gestures themselves.
+        const wakeOnInput = () => this.wake(globe);
+        const inputs = ['pointerdown', 'pointermove', 'wheel', 'touchstart'] as const;
+        for (const type of inputs) host.addEventListener(type, wakeOnInput, { passive: true });
+        // And the spin coasting on after a drag: the controls report each step of it
+        globe.controls().addEventListener('change', wakeOnInput);
+
         destroyRef.onDestroy(() => {
           resize.disconnect();
+          for (const type of inputs) host.removeEventListener(type, wakeOnInput);
           globe._destructor();
         });
 
         this.globe.set(globe);
         this.status.set('ready');
+        this.wake(globe);
       } catch (error) {
         // No WebGL (old device, disabled GPU, test runner): the rest of the dashboard still works
         console.error('Globe failed to start', error);
@@ -168,16 +256,31 @@ export class GlobeComponent {
         .pointColor((d) => ((d as GlobeMarker).highlight ? highlight : marker));
       // The sphere itself is a three.js MeshPhongMaterial; tint it to the ocean colour (no texture image)
       (globe.globeMaterial() as unknown as { color: { set(c: string): void } }).color.set(ocean);
+      untracked(() => this.wake(globe));
     });
 
-    // Data changes: re-run the accessors (polygonsData with the same array still re-evaluates colours)
+    // Countries: re-run the accessors (polygonsData with the same array still re-evaluates colours).
+    // Separate from the markers, so a marker change doesn't re-evaluate ~290 polygons.
     effect(() => {
       const globe = this.globe();
       const shapes = this.shapes();
       this.visitedCodes();
+      if (!globe) return;
+      globe.polygonsData([...shapes]);
+      untracked(() => this.wake(globe, POLYGONS_MS));
+    });
+
+    // Markers. globe.gl matches data to its 3D objects by object identity, and the dashboard builds new
+    // objects on every change (a trip added, a place picked), which would rebuild every marker and replay
+    // its grow-in. So markers that haven't changed are passed as the same objects as last time.
+    effect(() => {
+      const globe = this.globe();
       const markers = this.markers();
       if (!globe) return;
-      globe.polygonsData([...shapes]).pointsData(markers);
+      untracked(() => {
+        globe.pointsData(this.stablePoints(markers));
+        this.wake(globe, POINTS_MS);
+      });
     });
 
     // With `fill`, the starting zoom depends on the view's size, known only once it's laid out. Done once:
@@ -190,6 +293,7 @@ export class GlobeComponent {
       fitted = true;
       untracked(() => {
         if (!this.focus()) globe.pointOfView({ altitude: this.homeAltitude(globe) });
+        this.wake(globe);
       });
     });
 
@@ -198,6 +302,7 @@ export class GlobeComponent {
       const globe = this.globe();
       const focus = this.focus();
       if (!globe || !focus) return;
+      untracked(() => this.wake(globe, FLY_MS));
       globe.pointOfView(focus, FLY_MS);
     });
 
@@ -215,10 +320,26 @@ export class GlobeComponent {
     destroyRef.onDestroy(() => cancelAnimationFrame(this.slideFrame));
   }
 
+  private wake(globe: GlobeInstance, busyMs = 0): void {
+    this.loop ??= new IdleLoop(
+      () => globe.pauseAnimation(),
+      () => globe.resumeAnimation(),
+      IDLE_MS,
+    );
+    this.loop.wake(busyMs);
+  }
+
+  private stablePoints(markers: readonly GlobeMarker[]): GlobeMarker[] {
+    const { points, cache } = reuseMarkers(markers, this.pointCache);
+    this.pointCache = cache;
+    return points;
+  }
+
   // Eases the view offset from where it is now to `target` (a resize mid-slide just continues from there).
-  // globe.gl re-renders every frame anyway, so each step only has to update the camera.
+  // The globe is kept awake for the slide, so each step only has to update the camera.
   private slideTo(globe: GlobeInstance, target: number, { width, height }: Size): void {
     cancelAnimationFrame(this.slideFrame);
+    this.wake(globe, SLIDE_MS);
     const camera = globe.camera() as unknown as ViewOffsetCamera;
     const apply = (x: number) => {
       this.shift = x;
@@ -248,12 +369,15 @@ export class GlobeComponent {
     const globe = this.globe();
     if (!globe) return;
     const { altitude } = globe.pointOfView();
+    this.wake(globe, 300);
     globe.pointOfView({ altitude: Math.min(6, Math.max(0.4, altitude * factor)) }, 300);
   }
 
   protected resetView(): void {
     const globe = this.globe();
-    if (globe) globe.pointOfView({ lat: 20, lng: 0, altitude: this.homeAltitude(globe) }, 600);
+    if (!globe) return;
+    this.wake(globe, 600);
+    globe.pointOfView({ lat: 20, lng: 0, altitude: this.homeAltitude(globe) }, 600);
   }
 
   private homeAltitude(globe: GlobeInstance): number {
