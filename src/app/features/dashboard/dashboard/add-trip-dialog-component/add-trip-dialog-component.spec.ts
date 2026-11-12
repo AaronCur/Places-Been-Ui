@@ -252,7 +252,35 @@ describe('AddTripDialogComponent', () => {
     expect(text(fixture)).toContain('Pick a country from the list');
   });
 
+  it('highlights the picked city on the globe until it’s dropped or the dialog closes', async () => {
+    const fixture = await render();
+    const focus = TestBed.inject(MapFocusService);
+
+    await pick(fixture, inputs(fixture)['country'], 'Germany');
+    expect(focus.pin()).toBeNull(); // a country alone isn't a place yet
+
+    await pick(fixture, inputs(fixture)['city'], 'Berlin');
+    expect(focus.pin()).toEqual({ lat: 52.52, lng: 13.405, label: 'Berlin, Germany' });
+
+    await type(fixture, inputs(fixture)['city'], 'Ber'); // edited back to unpicked text
+    expect(focus.pin()).toBeNull();
+
+    await pick(fixture, inputs(fixture)['city'], 'Berlin');
+    fixture.destroy();
+    expect(focus.pin()).toBeNull();
+  });
+
   describe('a country with no cities in the dataset', () => {
+    it('highlights a typed city at the country’s centre', async () => {
+      const fixture = await render();
+      const focus = TestBed.inject(MapFocusService);
+
+      await pick(fixture, inputs(fixture)['country'], 'Gibraltar');
+      await type(fixture, inputs(fixture)['city'], 'Gibraltar Town');
+
+      expect(focus.pin()).toEqual({ lat: 36.13, lng: -5.35, label: 'Gibraltar Town, Gibraltar' });
+    });
+
     it('lets the city be typed and pins it at the country’s centre', async () => {
       const fixture = await render();
 

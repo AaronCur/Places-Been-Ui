@@ -209,6 +209,9 @@ export class DashboardComponent {
   protected openAddTrip(): void {
     if (this.addTripOpen()) return; // a second click while that chunk is on its way
     this.addTripOpen.set(true);
+    // Phone: an expanded sheet would show through behind Add trip's panel; it stays down after it closes
+    // too, so the globe shows where the trip went
+    this.sheetExpanded.set(false);
 
     const opened$ = this.isDesktop()
       ? from(import('../add-trip-dialog-component/add-trip-dialog-component')).pipe(
