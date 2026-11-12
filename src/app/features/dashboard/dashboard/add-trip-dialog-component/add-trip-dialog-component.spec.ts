@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Observable, Subject, of, throwError } from 'rxjs';
-import { AddTripDialogComponent } from './add-trip-dialog-component';
+import { AddTripDialogComponent, COUNTRY_FOCUS_DELAY_MS } from './add-trip-dialog-component';
 import { CityOption, CountryOption, PlacesService } from '../../../../core/services/places.service';
 import { MapFocusService } from '../../../../core/services/map-focus.service';
 import { TripService } from '../../../../core/services/trip.service';
@@ -143,6 +143,31 @@ describe('AddTripDialogComponent', () => {
     (fixture.nativeElement.querySelector('form') as HTMLFormElement).requestSubmit();
     await fixture.whenStable();
   };
+
+  // Real time (it's under half a second): fake timers would also stall Angular's own scheduling in render()
+  describe('focus on opening', () => {
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    it('moves into the country field (opening its list) only once the globe has slid aside', async () => {
+      const opened = performance.now();
+      const fixture = await render();
+      const { country } = inputs(fixture);
+      expect(document.activeElement).not.toBe(country);
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(country), { timeout: 2000 });
+      expect(performance.now() - opened).toBeGreaterThanOrEqual(COUNTRY_FOCUS_DELAY_MS - 20);
+    });
+
+    it('leaves the focus alone if the user is already in a field by then', async () => {
+      const fixture = await render();
+      const { notes } = inputs(fixture);
+
+      notes.focus();
+      await sleep(COUNTRY_FOCUS_DELAY_MS + 100);
+
+      expect(document.activeElement).toBe(notes);
+    });
+  });
 
   it('keeps the city field closed until a country is picked', async () => {
     const fixture = await render();

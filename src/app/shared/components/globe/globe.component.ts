@@ -18,6 +18,8 @@ import type { GlobeInstance } from 'globe.gl';
 import { CountryShape } from '../../../core/services/world.service';
 import { MapFocus } from '../../../core/services/map-focus.service';
 import { ThemeService } from '../../../core/services/theme.service';
+import { borderPositions } from './country-borders';
+import type { BorderLines } from './border-lines';
 
 export interface GlobeMarker {
   lat: number;
@@ -33,6 +35,9 @@ const FLY_MS = 1000;
 // A bit longer than the dialog's own entrance, so the globe settles just after the dialog is in place
 const SLIDE_MS = 400;
 const POLYGONS_MS = 300;
+// Countries' heights above the globe, in globe radii: visited ones stand out
+const VISITED_ALTITUDE = 0.012;
+const LAND_ALTITUDE = 0.006;
 // globe.gl's default for markers growing in
 const POINTS_MS = 1000;
 // How long the globe keeps drawing after the last thing that moved it: covers the spin coasting to a stop
@@ -170,6 +175,7 @@ export class GlobeComponent {
   private shift = 0; // px the picture is currently slid left
   private slideFrame = 0;
   private loop: IdleLoop | undefined;
+  private borders: BorderLines | undefined;
   /** The marker objects last given to the globe, by content: unchanged markers keep their 3D object */
   private pointCache = new Map<string, GlobeMarker>();
 
@@ -179,7 +185,11 @@ export class GlobeComponent {
 
     afterNextRender(async () => {
       try {
-        const { default: Globe } = await import('globe.gl');
+        // Together: border-lines brings three.js, which only belongs in this lazy chunk
+        const [{ default: Globe }, { BorderLines }] = await Promise.all([
+          import('globe.gl'),
+          import('./border-lines'),
+        ]);
         if (destroyRef.destroyed) return;
         const host = this.canvasHost().nativeElement;
         const dpr = window.devicePixelRatio || 1;
@@ -190,7 +200,7 @@ export class GlobeComponent {
         })
           .showGraticules(true)
           .atmosphereAltitude(0.12)
-          .polygonAltitude((d) => (this.isVisited(d) ? 0.012 : 0.006))
+          .polygonAltitude((d) => this.altitudeOf(d as CountryShape))
           .polygonsTransitionDuration(POLYGONS_MS)
           .polygonLabel((d) => escapeHtml((d as CountryShape).properties.name))
           .onPolygonClick((d) => this.countryClick.emit((d as CountryShape).properties.iso))
@@ -202,6 +212,10 @@ export class GlobeComponent {
           .pointOfView({ altitude: DEFAULT_ALTITUDE });
         // Kept through resizes: setSize() multiplies by whatever ratio was set
         globe.renderer().setPixelRatio(Math.min(MAX_PIXEL_RATIO, dpr));
+        // All borders in one object instead of globe.gl's stroke per country (see country-borders.ts)
+        const borders = new BorderLines();
+        globe.scene().add(borders.object);
+        this.borders = borders;
 
         const resize = new ResizeObserver(([entry]) => {
           const { width, height } = entry.contentRect;
@@ -222,6 +236,7 @@ export class GlobeComponent {
         destroyRef.onDestroy(() => {
           resize.disconnect();
           for (const type of inputs) host.removeEventListener(type, wakeOnInput);
+          borders.dispose();
           globe._destructor();
         });
 
@@ -251,9 +266,12 @@ export class GlobeComponent {
         .backgroundColor('rgba(0,0,0,0)')
         .atmosphereColor(ocean)
         .polygonCapColor((d) => (this.isVisited(d) ? visited : land))
-        .polygonSideColor(() => line)
-        .polygonStrokeColor(() => line)
+        // Each country with sides or a stroke is another draw call per frame. Sides only where they show (an
+        // unvisited country is too low for its sides to be seen); no strokes, the borders object draws them.
+        .polygonSideColor((d) => (this.isVisited(d) ? line : ''))
+        .polygonStrokeColor(() => null)
         .pointColor((d) => ((d as GlobeMarker).highlight ? highlight : marker));
+      this.borders?.setColor(line);
       // The sphere itself is a three.js MeshPhongMaterial; tint it to the ocean colour (no texture image)
       (globe.globeMaterial() as unknown as { color: { set(c: string): void } }).color.set(ocean);
       untracked(() => this.wake(globe));
@@ -267,7 +285,10 @@ export class GlobeComponent {
       this.visitedCodes();
       if (!globe) return;
       globe.polygonsData([...shapes]);
-      untracked(() => this.wake(globe, POLYGONS_MS));
+      untracked(() => {
+        this.borders?.update(borderPositions(shapes, (shape) => this.altitudeOf(shape)));
+        this.wake(globe, POLYGONS_MS);
+      });
     });
 
     // Markers. globe.gl matches data to its 3D objects by object identity, and the dashboard builds new
@@ -386,6 +407,10 @@ export class GlobeComponent {
     if (!fill || !width || !height) return DEFAULT_ALTITUDE;
     const fov = (globe.camera() as unknown as { fov: number }).fov;
     return altitudeToFit(width, height, fill, fov);
+  }
+
+  private altitudeOf(shape: CountryShape): number {
+    return this.isVisited(shape) ? VISITED_ALTITUDE : LAND_ALTITUDE;
   }
 
   private isVisited(shape: object): boolean {
