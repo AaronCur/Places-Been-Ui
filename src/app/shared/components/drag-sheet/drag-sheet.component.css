@@ -21,16 +21,16 @@
   border-radius: 28px 28px 0 0;
   box-shadow: 0 -2px 12px rgb(0 0 0 / 0.16);
   transform: translateY(var(--sheet-peek, 50%));
-  transition:
-    transform 300ms cubic-bezier(0.2, 0, 0, 1),
-    border-radius 300ms ease;
+  /* Its own compositor layer from the start, so a drag or snap only moves it. Only the transform animates:
+     the corners stay rounded, expanded too, so nothing repaints the sheet (the full list) mid-slide. */
+  will-change: transform;
+  transition: transform 300ms cubic-bezier(0.2, 0, 0, 1);
   /* Collapsed, every vertical drag belongs to the sheet */
   touch-action: none;
 }
 
 :host(.expanded) .sheet {
   transform: translateY(0);
-  border-radius: 0;
   touch-action: pan-y;
 }
 
